@@ -27,9 +27,9 @@ const Cell: React.FC<CellProps> = ({
   const getCellBaseStyle = () => {
     switch (type) {
       case "base-red":
-        return "bg-red-200";
+        return "bg-red-800"; // Darker red for base
       case "base-blue":
-        return "bg-blue-200";
+        return "bg-blue-800"; // Darker blue for base
       case "jump-red":
         return "bg-red-100";
       case "jump-blue":
