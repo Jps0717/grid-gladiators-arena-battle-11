@@ -7,7 +7,7 @@ import VictoryStats from "../components/VictoryStats";
 import { useGameLogic } from "../hooks/game/useGameLogic";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
-import { Flag, Copy, Users, ArrowLeft } from "lucide-react";
+import { Flag, Copy, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { subscribeToGameChanges } from "../utils/supabase";
 import ColorSelector from "../components/ColorSelector";

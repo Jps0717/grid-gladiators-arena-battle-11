@@ -42,7 +42,7 @@ export const createGameSession = async (): Promise<string | null> => {
     toast({
       title: "Failed to create game session",
       description: "Please verify your connection and try again later",
-      variant: "destructive", // fixed the error here by changing from "warning" to "destructive"
+      variant: "destructive",
     });
     return null;
   }
