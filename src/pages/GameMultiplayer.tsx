@@ -7,7 +7,7 @@ import VictoryStats from "../components/VictoryStats";
 import { useGameLogic } from "../hooks/game/useGameLogic";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
-import { Flag, Copy, Users } from "lucide-react";
+import { Flag, Copy, Users, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { subscribeToGameChanges } from "../utils/supabase";
 
@@ -44,6 +44,7 @@ const GameMultiplayer = () => {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Copy session ID to clipboard
   const copySessionId = () => {
@@ -63,36 +64,49 @@ const GameMultiplayer = () => {
       return;
     }
 
+    // Reset error state on mount
+    setError(null);
+    
     // Set initial waiting state
     setWaitingForOpponent(!opponentPresent || !gameReady);
     setIsLoading(true);
 
-    // Subscribe to game state changes
-    const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
-      console.log("Game state updated from database:", updatedGameState);
-      if (updatedGameState) {
-        updateGameStateFromDatabase(updatedGameState);
-        setIsLoading(false);
-      }
-    });
-
-    setSubscription(newSubscription);
-
-    // Initial sync (get latest game state)
-    if (gameReady) {
-      syncWithDatabase(sessionId)
-        .then(() => setIsLoading(false))
-        .catch(error => {
-          console.error("Error syncing game state:", error);
+    try {
+      // Subscribe to game state changes
+      const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
+        console.log("Game state updated from database:", updatedGameState);
+        if (updatedGameState) {
+          updateGameStateFromDatabase(updatedGameState);
           setIsLoading(false);
-        });
+        } else {
+          console.warn("Received null or undefined game state from database");
+          setIsLoading(false);
+        }
+      });
+
+      setSubscription(newSubscription);
+
+      // Initial sync (get latest game state)
+      if (gameReady) {
+        syncWithDatabase(sessionId)
+          .then(() => setIsLoading(false))
+          .catch(error => {
+            console.error("Error syncing game state:", error);
+            setError("Failed to load game data. Please try again.");
+            setIsLoading(false);
+          });
+      }
+    } catch (err) {
+      console.error("Error setting up game:", err);
+      setError("Failed to connect to game. Please try again.");
+      setIsLoading(false);
     }
 
     // Clean up subscription when component unmounts
     return () => {
-      if (newSubscription) {
+      if (subscription) {
         console.log("Unsubscribing from game changes");
-        newSubscription.unsubscribe();
+        subscription.unsubscribe();
       }
     };
   }, [sessionId, isConnected, opponentPresent, gameReady]);
@@ -103,14 +117,24 @@ const GameMultiplayer = () => {
     
     // If opponent joins and game becomes ready, sync state
     if (opponentPresent && gameReady && sessionId) {
-      syncWithDatabase(sessionId).catch(console.error);
+      syncWithDatabase(sessionId).catch(err => {
+        console.error("Error syncing after opponent joined:", err);
+        setError("Failed to sync game data with opponent");
+      });
     }
   }, [opponentPresent, gameReady, sessionId]);
 
   // Sync game state to database when it changes locally
   useEffect(() => {
     if (sessionId && isMyTurn && gameReady && !isLoading) {
-      syncWithDatabase(sessionId).catch(console.error);
+      syncWithDatabase(sessionId).catch(err => {
+        console.error("Error syncing game state:", err);
+        toast({
+          title: "Sync Error",
+          description: "Failed to update game state. Game may be out of sync.",
+          variant: "destructive",
+        });
+      });
     }
   }, [gameState, isMyTurn, sessionId, gameReady, isLoading]);
 
@@ -124,7 +148,7 @@ const GameMultiplayer = () => {
   // Calculate whether we won (if game is over)
   const isWinner = gameState.gameOver && gameState.winner === playerColor;
 
-  // Calculate stats for multiplayer mode with null checks
+  // Calculate stats for multiplayer mode with null checks and defaults
   const gameStats = {
     winner: gameState.winner || "red",
     roundDuration: 120, // Placeholder
@@ -142,6 +166,27 @@ const GameMultiplayer = () => {
       blue: 2 // Placeholder
     }
   };
+
+  // Error screen
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
+        <div className="bg-blue-900/70 p-8 rounded-lg border border-blue-400 max-w-md w-full">
+          <div className="flex flex-col items-center text-center gap-4">
+            <AlertTriangle size={48} className="text-yellow-300" />
+            <h2 className="text-2xl font-bold text-white">Connection Error</h2>
+            <p className="text-blue-200 mb-4">{error}</p>
+            <Button 
+              onClick={() => navigate("/")}
+              className="bg-blue-700 hover:bg-blue-800 w-full"
+            >
+              Return Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Loading indicator
   if (isLoading) {
