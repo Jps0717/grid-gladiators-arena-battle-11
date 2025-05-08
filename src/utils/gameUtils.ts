@@ -1,3 +1,4 @@
+
 import { Position, PlayerType, GameState, ValidMoves, Wall, CellType } from "../types/gameTypes";
 
 // Format seconds into MM:SS format
@@ -114,6 +115,12 @@ export const getJumpDiagonalPositions = (pos: Position, player: PlayerType): Pos
   );
 };
 
+// Check if a position is a jump zone for any player
+export const isAnyJumpZone = (pos: Position): boolean => {
+  const { redJumps, blueJumps } = getJumpZones();
+  return positionInArray(pos, redJumps) || positionInArray(pos, blueJumps);
+};
+
 // Find a wall at a specific position
 export const findWallAtPosition = (walls: Wall[], pos: Position): Wall | undefined => {
   return walls.find(wall => positionsEqual(wall.position, pos));
@@ -176,6 +183,9 @@ export const getValidMoves = (
     
     // Cannot place a wall on any base cell
     if (isBaseCell(pos)) return false;
+    
+    // Cannot place a wall on any jump zone cell (red or blue)
+    if (isAnyJumpZone(pos)) return false;
     
     return true;
   });
@@ -243,3 +253,4 @@ export const isPlayerJumpZone = (pos: Position, player: PlayerType): boolean => 
   
   return false;
 };
+
