@@ -9,107 +9,13 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      game_sessions: {
-        Row: {
-          code: string
-          created_at: string
-          current_player: string
-          ended_at: string | null
-          game_state: Json | null
-          id: string
-          status: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          current_player?: string
-          ended_at?: string | null
-          game_state?: Json | null
-          id?: string
-          status?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          current_player?: string
-          ended_at?: string | null
-          game_state?: Json | null
-          id?: string
-          status?: string
-        }
-        Relationships: []
-      }
-      players: {
-        Row: {
-          color: string
-          created_at: string
-          display_name: string
-          has_left: boolean | null
-          id: string
-          last_activity: string | null
-          session_id: string | null
-          user_id: string | null
-        }
-        Insert: {
-          color: string
-          created_at?: string
-          display_name: string
-          has_left?: boolean | null
-          id?: string
-          last_activity?: string | null
-          session_id?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          display_name?: string
-          has_left?: boolean | null
-          id?: string
-          last_activity?: string | null
-          session_id?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "players_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "game_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_profiles: {
-        Row: {
-          created_at: string
-          display_name: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          display_name: string
-          id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          display_name?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      update_player_activity: {
-        Args: { p_session_id: string; p_color: string }
-        Returns: undefined
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
