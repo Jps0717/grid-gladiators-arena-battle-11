@@ -1,4 +1,5 @@
 
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 
 // Define CORS headers
@@ -114,3 +115,4 @@ Deno.serve(async (req) => {
     );
   }
 });
+
