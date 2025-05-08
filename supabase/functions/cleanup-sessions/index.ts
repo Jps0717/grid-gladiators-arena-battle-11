@@ -30,12 +30,12 @@ Deno.serve(async (req) => {
     // Get current timestamp and calculate cutoff time
     const now = new Date();
     
-    // Clean up waiting sessions older than 1 hour (reduced from 2 hours)
+    // Clean up waiting sessions older than 10 minutes (reduced from 1 hour)
     const waitingCutoff = new Date(now);
-    waitingCutoff.setHours(now.getHours() - 1);
+    waitingCutoff.setMinutes(now.getMinutes() - 10);
     const waitingCutoffString = waitingCutoff.toISOString();
     
-    // Clean up completed and active sessions older than 12 hours (reduced from 24 hours)
+    // Clean up completed and active sessions older than 12 hours (kept the same)
     const oldCutoff = new Date(now);
     oldCutoff.setHours(now.getHours() - 12);
     const oldCutoffString = oldCutoff.toISOString();
