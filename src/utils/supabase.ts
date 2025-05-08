@@ -273,3 +273,75 @@ export const subscribeToSessionStatus = (sessionId: string, callback: (data: any
       console.log(`Subscription status for session changes: ${status}`);
     });
 };
+
+// Delete old game sessions that are no longer active or were created too long ago
+export const cleanupStaleSessions = async (options: { 
+  maxAgeHours?: number,
+  includeActive?: boolean,
+  includeWaiting?: boolean
+} = {}): Promise<number> => {
+  try {
+    // Default options
+    const {
+      maxAgeHours = 24,  // Delete sessions older than 24 hours by default
+      includeActive = false, // By default, don't delete active sessions
+      includeWaiting = true  // By default, clean up waiting sessions
+    } = options;
+    
+    // Calculate the cutoff time
+    const cutoffDate = new Date();
+    cutoffDate.setHours(cutoffDate.getHours() - maxAgeHours);
+    const cutoffISOString = cutoffDate.toISOString();
+    
+    console.log(`Cleaning up sessions older than ${cutoffISOString}`);
+    
+    // Build the status filter based on options
+    let statusFilter = [];
+    if (includeWaiting) statusFilter.push('waiting');
+    if (includeActive) statusFilter.push('active');
+    
+    // If no statuses to filter by, just return 0 (no sessions to delete)
+    if (statusFilter.length === 0) {
+      console.log("No session status types selected for cleanup");
+      return 0;
+    }
+    
+    // First, count how many sessions will be deleted
+    const { count, error: countError } = await supabase
+      .from('game_sessions')
+      .select('*', { count: 'exact', head: true })
+      .lt('created_at', cutoffISOString)
+      .in('status', statusFilter);
+      
+    if (countError) {
+      console.error("Error counting stale sessions:", countError);
+      return 0;
+    }
+    
+    if (!count || count === 0) {
+      console.log("No stale sessions found to delete");
+      return 0;
+    }
+    
+    console.log(`Found ${count} stale sessions to delete`);
+    
+    // Delete the sessions
+    const { error: deleteError } = await supabase
+      .from('game_sessions')
+      .delete()
+      .lt('created_at', cutoffISOString)
+      .in('status', statusFilter);
+      
+    if (deleteError) {
+      console.error("Error deleting stale sessions:", deleteError);
+      return 0;
+    }
+    
+    console.log(`Successfully deleted ${count} stale sessions`);
+    return count || 0;
+  } catch (error) {
+    console.error("Error during session cleanup:", error);
+    return 0;
+  }
+};
+

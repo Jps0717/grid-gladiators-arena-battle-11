@@ -3,13 +3,16 @@ import React, { useState } from "react";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Swords, Users, User, ArrowRight, AlertTriangle } from "lucide-react";
+import { Swords, Users, User, ArrowRight, Trash } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { cleanupStaleSessions } from "../utils/supabase";
+import { toast } from "@/hooks/use-toast";
 
 const HomePage = () => {
   const { createGame, joinGame, isLoading } = useMultiplayer();
   const [gameCode, setGameCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
   const navigate = useNavigate();
   
   const handleCreateGame = async () => {
@@ -26,6 +29,31 @@ const HomePage = () => {
   
   const handlePlayLocal = () => {
     navigate("/local");
+  };
+
+  const handleCleanupStaleSessions = async () => {
+    setIsCleaningUp(true);
+    try {
+      // Clean up waiting sessions older than 2 hours and completed games older than 24 hours
+      const deletedCount = await cleanupStaleSessions({ 
+        maxAgeHours: 2,  // Delete sessions older than 2 hours
+        includeWaiting: true,
+        includeActive: false
+      });
+      
+      toast({
+        title: "Cleanup Complete",
+        description: `${deletedCount} stale game sessions were removed`,
+      });
+    } catch (error) {
+      toast({
+        title: "Cleanup Failed",
+        description: "There was an error cleaning up stale sessions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningUp(false);
+    }
   };
 
   return (
@@ -100,6 +128,17 @@ const HomePage = () => {
             >
               <Users className="mr-2 h-5 w-5" />
               <span className="text-lg">Join Online Game</span>
+            </Button>
+            
+            <Button
+              onClick={handleCleanupStaleSessions}
+              disabled={isCleaningUp}
+              className="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg flex items-center justify-center h-auto"
+            >
+              <Trash className="mr-2 h-5 w-5" />
+              <span className="text-sm">
+                {isCleaningUp ? "Cleaning up..." : "Clean up old game sessions"}
+              </span>
             </Button>
           </div>
         )}
