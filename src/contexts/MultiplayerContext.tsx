@@ -89,7 +89,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         localStorage.setItem('playerColor', hostColor);
         localStorage.setItem('isHost', 'true');
         
-        navigate(`/game/${newSessionId}`);
+        // We're going to let the component handle navigation
         return newSessionId;
       }
       return null;

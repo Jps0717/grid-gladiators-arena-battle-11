@@ -16,7 +16,10 @@ const HomePage = () => {
   const isSupabaseConfigured = true;
   
   const handleCreateGame = async () => {
-    await createGame();
+    const sessionId = await createGame();
+    if (sessionId) {
+      navigate(`/game/${sessionId}`);
+    }
   };
   
   const handleJoinGame = async () => {
