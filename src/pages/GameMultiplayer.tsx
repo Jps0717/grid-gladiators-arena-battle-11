@@ -103,7 +103,7 @@ const GameMultiplayer = () => {
   // Calculate whether we won (if game is over)
   const isWinner = gameState.gameOver && gameState.winner === playerColor;
 
-  // Calculate stats for multiplayer mode
+  // Calculate stats for multiplayer mode with null checks
   const gameStats = {
     winner: gameState.winner || "red",
     roundDuration: 120, // Placeholder
@@ -112,10 +112,10 @@ const GameMultiplayer = () => {
       blue: 5 // Placeholder
     },
     wallsPlaced: {
-      red: gameState.walls.filter(w => w.owner === "red").length,
-      blue: gameState.walls.filter(w => w.owner === "blue").length
+      red: gameState.walls ? gameState.walls.filter(w => w.owner === "red").length : 0,
+      blue: gameState.walls ? gameState.walls.filter(w => w.owner === "blue").length : 0
     },
-    wallsBroken: gameState.walls.filter(w => w.broken === true).length || 0,
+    wallsBroken: gameState.walls ? gameState.walls.filter(w => w.broken === true).length : 0,
     hitCount: {
       red: 2, // Placeholder
       blue: 2 // Placeholder
