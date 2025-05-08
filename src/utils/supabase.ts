@@ -101,6 +101,8 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
 
 // Subscribe to game changes using Supabase realtime
 export const subscribeToGameChanges = (sessionId: string, callback: (gameState: GameState) => void) => {
+  console.log(`Setting up real-time subscription for game ${sessionId}`);
+  
   return supabase
     .channel(`game_changes_${sessionId}`)
     .on(
@@ -118,12 +120,16 @@ export const subscribeToGameChanges = (sessionId: string, callback: (gameState: 
         }
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log(`Subscription status for game changes: ${status}`);
+    });
 };
 
 // Subscribe to presence for real-time player tracking
 export const subscribeToPresence = async (sessionId: string) => {
   try {
+    console.log(`Setting up presence channel for game ${sessionId}`);
+    
     const presenceChannel = supabase.channel(`presence_${sessionId}`);
     
     presenceChannel
@@ -150,6 +156,7 @@ export const trackPlayerPresence = async (channel: any, playerData: any) => {
   if (!channel) return false;
   
   try {
+    console.log("Tracking player presence:", playerData);
     const status = await channel.subscribe();
     if (status === 'SUBSCRIBED') {
       await channel.track(playerData);

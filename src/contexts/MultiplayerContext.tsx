@@ -47,6 +47,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [availableColors, setAvailableColors] = useState<PlayerType[]>(["red", "blue"]);
   const [gameReady, setGameReady] = useState<boolean>(false);
+  const [presenceChannel, setPresenceChannel] = useState<any>(null);
   
   const navigate = useNavigate();
 
@@ -100,10 +101,33 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
               setAvailableColors(updatedColors);
             }
           }
+          
+          // Set up presence channel
+          setupPresenceChannel(storedSessionId, storedIsHost);
         }
       });
     }
+    
+    return () => {
+      // Clean up presence channel on unmount
+      if (presenceChannel) {
+        presenceChannel.unsubscribe();
+      }
+    };
   }, []);
+  
+  // Set up presence channel
+  const setupPresenceChannel = async (sessionId: string, isHost: boolean) => {
+    const channel = await subscribeToPresence(sessionId);
+    if (channel) {
+      setPresenceChannel(channel);
+      await trackPlayerPresence(channel, {
+        user: isHost ? 'host' : 'guest',
+        online: true,
+        joinedAt: new Date().toISOString()
+      });
+    }
+  };
 
   const createGame = async (): Promise<string | null> => {
     setIsLoading(true);
@@ -121,15 +145,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         localStorage.setItem('gameSessionId', newSessionId);
         localStorage.setItem('isHost', 'true');
         
-        // Join presence channel for this game
-        const channel = await subscribeToPresence(newSessionId);
-        if (channel) {
-          await trackPlayerPresence(channel, {
-            user: 'host',
-            online: true,
-            joinedAt: new Date().toISOString()
-          });
-        }
+        // Set up presence channel
+        await setupPresenceChannel(newSessionId, true);
         
         // We're going to let the component handle navigation
         return newSessionId;
@@ -190,14 +207,12 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setAvailableColors(updatedColors);
       }
       
-      // Join presence channel for this game
-      const channel = await subscribeToPresence(id);
-      if (channel) {
-        await trackPlayerPresence(channel, {
-          user: 'guest',
-          online: true,
-          joinedAt: new Date().toISOString()
-        });
+      // Set up presence channel
+      await setupPresenceChannel(id, false);
+      
+      const success = await joinGameSession(id);
+      if (!success) {
+        return false;
       }
       
       // Redirect to game page
@@ -262,6 +277,12 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
   
   const handleLeaveGame = () => {
+    // Clean up presence channel
+    if (presenceChannel) {
+      presenceChannel.unsubscribe();
+      setPresenceChannel(null);
+    }
+    
     setSessionId(null);
     setPlayerColor(null);
     setIsHost(false);

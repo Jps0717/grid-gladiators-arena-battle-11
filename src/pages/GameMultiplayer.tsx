@@ -47,6 +47,7 @@ const GameMultiplayer = () => {
   
   const [showStats, setShowStats] = useState(false);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
 
   // Copy session ID to clipboard
   const copySessionId = () => {
@@ -69,10 +70,12 @@ const GameMultiplayer = () => {
     setWaitingForOpponent(!opponentPresent);
 
     // Subscribe to game state changes
-    const subscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
+    const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
       console.log("Game state updated from database:", updatedGameState);
       updateGameStateFromDatabase(updatedGameState);
     });
+
+    setSubscription(newSubscription);
 
     // Initial sync (get latest game state)
     if (gameReady) {
@@ -81,7 +84,10 @@ const GameMultiplayer = () => {
 
     // Clean up subscription when component unmounts
     return () => {
-      subscription.unsubscribe();
+      if (newSubscription) {
+        console.log("Unsubscribing from game changes");
+        newSubscription.unsubscribe();
+      }
     };
   }, [sessionId, isConnected, opponentPresent, gameReady]);
 
