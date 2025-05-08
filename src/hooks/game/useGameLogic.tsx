@@ -36,7 +36,8 @@ export const useGameLogic = () => {
     placeWall,
     handleCellClick,
     endTurn,
-    triggerEnergyGainAnimation
+    triggerEnergyGainAnimation,
+    isHitInCooldown
   } = useGameActions({
     gameState,
     setGameState,
@@ -102,6 +103,7 @@ export const useGameLogic = () => {
     resetGame,
     endTurn,
     hasEnoughEnergy,
+    isHitInCooldown,
     updateGameStateFromDatabase,
     syncWithDatabase
   };
