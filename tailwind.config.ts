@@ -59,7 +59,7 @@ const config: Config = {
           blue: "#3182ce",
           cell: "#2d3748",
           energy: "#ecc94b",
-          board: "#1a202c",
+          board: "#2c3e6d", // Updated to match the blue border in the example
           highlight: "#f6e05e",
         }
       },
@@ -88,6 +88,10 @@ const config: Config = {
         "glow": {
           "0%, 100%": { boxShadow: "0 0 5px 2px rgba(246, 224, 94, 0.3)" },
           "50%": { boxShadow: "0 0 10px 4px rgba(246, 224, 94, 0.5)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-4px)" },
         }
       },
       animation: {
@@ -96,6 +100,7 @@ const config: Config = {
         "hit-wave": "hit-wave 0.8s ease-out forwards",
         "pulse-energy": "pulse-energy 0.8s ease-in-out infinite",
         "glow": "glow 2s ease-in-out infinite",
+        "float": "float 3s ease-in-out infinite",
       },
     },
   },

@@ -11,13 +11,13 @@ const Wall: React.FC<WallProps> = ({ wall }) => {
   return (
     <div 
       className={cn(
-        "absolute inset-0 flex items-center justify-center transition-all",
+        "absolute inset-2 flex items-center justify-center transition-all rounded-md",
         wall.broken && "hidden"
       )}
     >
       <div 
         className={cn(
-          "w-full h-full flex items-center justify-center text-sm font-bold",
+          "w-full h-full flex items-center justify-center text-sm font-bold rounded-md shadow-md",
           wall.hp === 2 ? (
             wall.owner === "red" ? "bg-game-red/90 text-white" : "bg-game-blue/90 text-white"
           ) : (
@@ -31,26 +31,31 @@ const Wall: React.FC<WallProps> = ({ wall }) => {
         {/* Cracks overlay for damaged walls */}
         {wall.hp === 1 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-full h-full overflow-hidden">
-              {/* Main horizontal crack */}
-              <div className="absolute top-[45%] left-0 h-[3px] w-full bg-gray-900 transform -translate-y-1/2 skew-y-3">
-                <div className="absolute top-[-1px] left-[30%] h-[1px] w-[40%] bg-gray-700"></div>
-                <div className="absolute bottom-[-1px] left-[20%] h-[1px] w-[30%] bg-gray-700"></div>
+            <div className="w-full h-full overflow-hidden rounded-md">
+              {/* Organic cracks based on the example image */}
+              <div className="absolute top-[40%] left-[5%] right-[30%] h-[2px] bg-black opacity-80" 
+                style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 0% 100%)", transform: "rotate(2deg) scaleY(0.8)" }}>
               </div>
               
-              {/* Left crack */}
-              <div className="absolute top-0 left-[30%] h-full w-[2px] bg-gray-900 transform -rotate-[15deg]">
-                <div className="absolute top-[40%] -left-[2px] h-[20%] w-[1px] bg-gray-700 transform rotate-[30deg]"></div>
+              <div className="absolute top-[30%] right-[15%] w-[2px] h-[45%] bg-black opacity-80"
+                style={{ clipPath: "polygon(0 0, 100% 8%, 100% 100%, 0% 92%)", transform: "rotate(15deg)" }}>
               </div>
               
-              {/* Right crack */}
-              <div className="absolute top-[20%] right-[25%] h-[80%] w-[2px] bg-gray-900 transform rotate-[12deg]">
-                <div className="absolute top-[30%] -right-[2px] h-[15%] w-[1px] bg-gray-700 transform -rotate-[25deg]"></div>
+              <div className="absolute top-[20%] left-[35%] w-[1.5px] h-[35%] bg-black opacity-70"
+                style={{ clipPath: "polygon(0 10%, 100% 0, 100% 100%, 0% 90%)", transform: "rotate(-10deg)" }}>
               </div>
               
-              {/* Small diagonal cracks */}
-              <div className="absolute top-[15%] left-[60%] h-[25%] w-[1px] bg-gray-800 transform rotate-[35deg]"></div>
-              <div className="absolute bottom-[20%] left-[15%] h-[15%] w-[1px] bg-gray-800 transform -rotate-[20deg]"></div>
+              <div className="absolute bottom-[20%] left-[25%] right-[40%] h-[2px] bg-black opacity-75"
+                style={{ clipPath: "polygon(0 0, 100% 30%, 100% 100%, 0% 70%)", transform: "rotate(-3deg) scaleY(0.7)" }}>
+              </div>
+              
+              {/* Small hairline cracks */}
+              <div className="absolute top-[55%] right-[30%] w-[1px] h-[20%] bg-black opacity-60"
+                style={{ transform: "rotate(25deg)" }}>
+              </div>
+              <div className="absolute top-[35%] left-[40%] w-[1px] h-[15%] bg-black opacity-50"
+                style={{ transform: "rotate(-20deg)" }}>
+              </div>
             </div>
           </div>
         )}

@@ -90,7 +90,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-5 gap-2 border-4 border-game-board rounded-lg overflow-hidden shadow-lg bg-game-board">
+    <div className="grid grid-cols-5 gap-1 border-4 border-gray-900 rounded-lg overflow-hidden shadow-lg bg-gray-900 p-1">
       {renderBoard()}
     </div>
   );
