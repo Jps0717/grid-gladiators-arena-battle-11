@@ -43,6 +43,7 @@ const GameMultiplayer = () => {
   const [showStats, setShowStats] = useState(false);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Copy session ID to clipboard
   const copySessionId = () => {
@@ -62,19 +63,29 @@ const GameMultiplayer = () => {
       return;
     }
 
+    // Set initial waiting state
     setWaitingForOpponent(!opponentPresent || !gameReady);
+    setIsLoading(true);
 
     // Subscribe to game state changes
     const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
       console.log("Game state updated from database:", updatedGameState);
-      updateGameStateFromDatabase(updatedGameState);
+      if (updatedGameState) {
+        updateGameStateFromDatabase(updatedGameState);
+        setIsLoading(false);
+      }
     });
 
     setSubscription(newSubscription);
 
     // Initial sync (get latest game state)
     if (gameReady) {
-      syncWithDatabase(sessionId).catch(console.error);
+      syncWithDatabase(sessionId)
+        .then(() => setIsLoading(false))
+        .catch(error => {
+          console.error("Error syncing game state:", error);
+          setIsLoading(false);
+        });
     }
 
     // Clean up subscription when component unmounts
@@ -86,12 +97,22 @@ const GameMultiplayer = () => {
     };
   }, [sessionId, isConnected, opponentPresent, gameReady]);
 
-  // Sync game state to database when it changes locally
+  // Update waiting state when opponent status changes
   useEffect(() => {
-    if (sessionId && isMyTurn && gameReady) {
+    setWaitingForOpponent(!opponentPresent || !gameReady);
+    
+    // If opponent joins and game becomes ready, sync state
+    if (opponentPresent && gameReady && sessionId) {
       syncWithDatabase(sessionId).catch(console.error);
     }
-  }, [gameState, isMyTurn, sessionId, gameReady]);
+  }, [opponentPresent, gameReady, sessionId]);
+
+  // Sync game state to database when it changes locally
+  useEffect(() => {
+    if (sessionId && isMyTurn && gameReady && !isLoading) {
+      syncWithDatabase(sessionId).catch(console.error);
+    }
+  }, [gameState, isMyTurn, sessionId, gameReady, isLoading]);
 
   // Show victory stats when game is over
   useEffect(() => {
@@ -121,6 +142,15 @@ const GameMultiplayer = () => {
       blue: 2 // Placeholder
     }
   };
+
+  // Loading indicator
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-800 to-blue-900">
+        <div className="text-white text-xl font-bold animate-pulse">Loading game...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
