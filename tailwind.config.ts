@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,16 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+        // Game specific colors
+        'game-red': '#e63946',
+        'game-blue': '#1d3557',
+        'game-board': '#2E4756',
+        'game-cell': '#457b9d',
+        'game-wall': '#6d6875',
+        'game-highlight': '#ffc300',
+        'game-energy': '#ffd60a',
+        'game-jump': '#99d98c'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +94,38 @@ export default {
 					to: {
 						height: '0'
 					}
-				}
+				},
+        'pulse-energy': {
+          '0%, 100%': { 
+            transform: 'scale(1)',
+            opacity: '1'
+          },
+          '50%': { 
+            transform: 'scale(1.2)',
+            opacity: '0.8'
+          }
+        },
+        'hit-wave': {
+          '0%': {
+            transform: 'scale(0)',
+            opacity: '1'
+          },
+          '100%': {
+            transform: 'scale(2)',
+            opacity: '0'
+          }
+        },
+        'jump-bounce': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' }
+        }
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+        'pulse-energy': 'pulse-energy 1.5s ease-in-out infinite',
+        'hit-wave': 'hit-wave 0.8s ease-out forwards',
+        'jump-bounce': 'jump-bounce 0.5s ease-in-out 2'
 			}
 		}
 	},
