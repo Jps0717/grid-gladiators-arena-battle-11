@@ -5,11 +5,9 @@ import GameControls from "../components/GameControls";
 import VictoryStats from "../components/VictoryStats";
 import { useGameLogic } from "../hooks/game/useGameLogic";
 import { Button } from "@/components/ui/button";
-import { Flag, Plus, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Flag, Plus } from "lucide-react";
 
 const Index = () => {
-  const navigate = useNavigate();
   const {
     gameState,
     highlightedCells,
@@ -27,13 +25,8 @@ const Index = () => {
   const [showStats, setShowStats] = useState(false);
 
   const handleForfeit = () => {
-    // In local mode, forfeit just resets the game
+    // In single player mode, forfeit just resets the game
     resetGame();
-  };
-  
-  // Return to home page
-  const handleReturnHome = () => {
-    navigate('/');
   };
   
   // Show victory stats when game is over
@@ -43,7 +36,7 @@ const Index = () => {
     }
   }, [gameState.gameOver, gameState.winner]);
   
-  // Calculate simple stats for local mode
+  // Calculate simple stats for single player mode
   const gameStats = {
     winner: gameState.winner || "red",
     roundDuration: 120, // Placeholder
@@ -67,15 +60,6 @@ const Index = () => {
       <div className="w-full max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              className="text-white hover:bg-blue-700/50 mr-2" 
-              onClick={handleReturnHome}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="ml-2">Home</span>
-            </Button>
-            
             <div 
               className={`w-6 h-6 rounded-full mr-2 ${gameState.currentPlayer === "red" ? "bg-red-600" : "bg-blue-600"}`}
             />
