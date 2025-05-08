@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Position } from "../../types/gameTypes";
 
 export const useGameAnimations = () => {
@@ -8,18 +8,20 @@ export const useGameAnimations = () => {
   const [energyGainAnimation, setEnergyGainAnimation] = useState<boolean>(false);
   
   // Function to animate energy gain
-  const animateEnergyGain = () => {
+  const animateEnergyGain = useCallback(() => {
     setEnergyGainAnimation(true);
+    
+    // Reset animation state after a delay
     setTimeout(() => {
       setEnergyGainAnimation(false);
-    }, 1200); // Match the duration of the CSS animation
-  };
+    }, 1000);
+  }, []);
   
-  // Function to play sound effects (placeholder for now)
-  const playSound = (type: 'move' | 'hit' | 'wall' | 'energy' | 'win' | 'turn') => {
-    // In a real implementation, this would play actual sounds
+  // Helper function to play sound effects (placeholder for now)
+  const playSound = useCallback((type: 'move' | 'hit' | 'wall' | 'energy' | 'win' | 'turn') => {
     console.log(`Playing sound: ${type}`);
-  };
+    // In a real implementation, this would use the Web Audio API or an audio library
+  }, []);
   
   return {
     highlightedCells,

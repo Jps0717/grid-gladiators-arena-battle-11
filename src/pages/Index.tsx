@@ -1,9 +1,9 @@
 
 import React, { useState } from "react";
-import GameBoard from "@/components/GameBoard";
-import GameControls from "@/components/GameControls";
-import VictoryStats from "@/components/VictoryStats";
-import { useGameLogic } from "@/hooks/game/useGameLogic";
+import GameBoard from "../components/GameBoard";
+import GameControls from "../components/GameControls";
+import VictoryStats from "../components/VictoryStats";
+import { useGameLogic } from "../hooks/game/useGameLogic";
 import { Button } from "@/components/ui/button";
 import { Flag, Plus } from "lucide-react";
 
@@ -59,7 +59,7 @@ const Index = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
             <div 
-              className={`w-6 h-6 rounded-full mr-2 ${gameState.currentPlayer === "red" ? "bg-game-red" : "bg-game-blue"}`}
+              className={`w-6 h-6 rounded-full mr-2 ${gameState.currentPlayer === "red" ? "bg-red-600" : "bg-blue-600"}`}
             />
             <h1 className="text-white text-2xl font-bold">
               {gameState.currentPlayer === "red" ? "Red" : "Blue"}'s Turn
