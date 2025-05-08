@@ -36,7 +36,7 @@ const Cell: React.FC<CellProps> = ({
       case "extra-energy":
         return "bg-game-energy/20";
       default:
-        return "bg-game-cell";
+        return "bg-white";
     }
   };
 
@@ -45,7 +45,7 @@ const Cell: React.FC<CellProps> = ({
       className={cn(
         "aspect-square relative flex items-center justify-center cursor-pointer transition-all duration-200",
         getCellBaseStyle(),
-        isHighlighted && "ring-2 ring-game-highlight ring-opacity-80 shadow-md",
+        isHighlighted && "bg-yellow-100 ring-2 ring-game-highlight ring-opacity-80 shadow-md",
         hasWall && "bg-opacity-60"
       )}
       onClick={() => onClick(position)}
@@ -64,7 +64,9 @@ const Cell: React.FC<CellProps> = ({
       )}
       {type === "extra-energy" && (
         <div className="absolute w-full h-full flex items-center justify-center">
-          <div className="w-6 h-6 animate-pulse bg-yellow-300 rounded-full opacity-30"></div>
+          <div className="w-6 h-6 animate-pulse text-yellow-400">
+            ⚡
+          </div>
         </div>
       )}
       

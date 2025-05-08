@@ -21,7 +21,7 @@ const GamePiece: React.FC<GamePieceProps> = ({
   return (
     <div
       className={cn(
-        "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
+        "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
         player === "red" ? "bg-game-red" : "bg-game-blue",
         isWinner && "ring-2 ring-yellow-300 shadow-lg scale-110",
         isCaptured && "opacity-50 scale-75",
@@ -30,7 +30,7 @@ const GamePiece: React.FC<GamePieceProps> = ({
       style={style}
     >
       <div className={cn(
-        "w-4 h-4 rounded-full", 
+        "w-5 h-5 rounded-full", 
         player === "red" ? "bg-red-300" : "bg-blue-300",
         isWinner && "bg-yellow-200"
       )}></div>
