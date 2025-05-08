@@ -20,7 +20,7 @@ export const createGameSession = async (): Promise<string | null> => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       player_colors: {
-        host: null,
+        host: "red", // Auto-assign host as red
         guest: null
       }
     };
@@ -74,6 +74,21 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
         variant: "destructive",
       });
       return false;
+    }
+
+    // Auto-assign guest as blue
+    const { error: colorError } = await supabase
+      .from('game_sessions')
+      .update({ 
+        "player_colors": { 
+          host: sessionData.player_colors?.host || "red",
+          guest: "blue" 
+        }
+      })
+      .eq('id', sessionId);
+    
+    if (colorError) {
+      console.error("Error assigning color:", colorError);
     }
 
     // Update session status to active
@@ -169,24 +184,6 @@ export const trackPlayerPresence = async (channel: any, playerData: any) => {
   }
 };
 
-// Update player color choice in the database
-export const updatePlayerColor = async (sessionId: string, isHost: boolean, color: PlayerType | null): Promise<boolean> => {
-  try {
-    const field = isHost ? 'player_colors->host' : 'player_colors->guest';
-    
-    const { error } = await supabase
-      .from('game_sessions')
-      .update({ [field]: color })
-      .eq('id', sessionId);
-    
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error("Error updating player color:", error);
-    return false;
-  }
-};
-
 // Get current game session data
 export const getGameSession = async (sessionId: string) => {
   try {
@@ -249,4 +246,30 @@ export const checkGameSession = async (sessionId: string): Promise<{ exists: boo
     console.error("Error checking game session:", error);
     return { exists: false, data: null };
   }
+};
+
+// Subscribe to session status changes
+export const subscribeToSessionStatus = (sessionId: string, callback: (data: any) => void) => {
+  console.log(`Setting up session status subscription for game ${sessionId}`);
+  
+  return supabase
+    .channel(`session_status_${sessionId}`)
+    .on(
+      'postgres_changes', 
+      { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'game_sessions', 
+        filter: `id=eq.${sessionId}` 
+      }, 
+      (payload) => {
+        console.log("Session status updated:", payload);
+        if (payload.new) {
+          callback(payload.new);
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log(`Subscription status for session changes: ${status}`);
+    });
 };

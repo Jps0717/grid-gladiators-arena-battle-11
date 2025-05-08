@@ -4,12 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { GameState, PlayerType } from '../types/gameTypes';
 import { 
   subscribeToGameChanges,
+  subscribeToSessionStatus,
   subscribeToPresence, 
   syncGameState, 
   createGameSession, 
   joinGameSession,
   checkGameSession,
-  updatePlayerColor,
   trackPlayerPresence,
   getGameSession
 } from '../utils/supabase';
@@ -28,9 +28,6 @@ interface MultiplayerContextType {
   leaveGame: () => void;
   syncState: (gameState: GameState) => Promise<void>;
   setMyTurn: (isMyTurn: boolean) => void;
-  selectColor: (color: PlayerType) => Promise<boolean>;
-  availableColors: PlayerType[];
-  opponentColor: PlayerType | null;
   gameReady: boolean;
 }
 
@@ -39,15 +36,14 @@ const MultiplayerContext = createContext<MultiplayerContextType | undefined>(und
 export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [playerColor, setPlayerColor] = useState<PlayerType | null>(null);
-  const [opponentColor, setOpponentColor] = useState<PlayerType | null>(null);
   const [isHost, setIsHost] = useState<boolean>(false);
   const [isMyTurn, setIsMyTurn] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [opponentPresent, setOpponentPresent] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [availableColors, setAvailableColors] = useState<PlayerType[]>(["red", "blue"]);
   const [gameReady, setGameReady] = useState<boolean>(false);
   const [presenceChannel, setPresenceChannel] = useState<any>(null);
+  const [statusSubscription, setStatusSubscription] = useState<any>(null);
   
   const navigate = useNavigate();
 
@@ -75,35 +71,18 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } else if (exists && data) {
           setIsConnected(true);
           setIsMyTurn(data.current_player === storedPlayerColor);
-          setOpponentPresent(data.status === 'active');
           
-          // Get color data
-          if (data.player_colors) {
-            const hostColor = data.player_colors.host;
-            const guestColor = data.player_colors.guest;
-            
-            // Set opponent color based on our role
-            if (storedIsHost && guestColor) {
-              setOpponentColor(guestColor);
-              setGameReady(true);
-            } else if (!storedIsHost && hostColor) {
-              setOpponentColor(hostColor);
-              setGameReady(true);
-            }
-            
-            // Update available colors
-            if (hostColor || guestColor) {
-              const updatedColors = ["red", "blue"].filter(color => {
-                if (storedIsHost && hostColor === color) return false;
-                if (!storedIsHost && guestColor === color) return false;
-                return true;
-              }) as PlayerType[];
-              setAvailableColors(updatedColors);
-            }
+          // If the status is active, the game is ready to play
+          if (data.status === 'active') {
+            setOpponentPresent(true);
+            setGameReady(true);
           }
           
           // Set up presence channel
           setupPresenceChannel(storedSessionId, storedIsHost);
+          
+          // Set up status subscription
+          setupStatusSubscription(storedSessionId);
         }
       });
     }
@@ -112,6 +91,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Clean up presence channel on unmount
       if (presenceChannel) {
         presenceChannel.unsubscribe();
+      }
+      
+      // Clean up status subscription
+      if (statusSubscription) {
+        statusSubscription.unsubscribe();
       }
     };
   }, []);
@@ -128,6 +112,40 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
     }
   };
+  
+  // Set up status subscription
+  const setupStatusSubscription = (sessionId: string) => {
+    const subscription = subscribeToSessionStatus(sessionId, (sessionData) => {
+      console.log("Session status update received:", sessionData);
+      
+      if (sessionData.status === 'active' && !gameReady) {
+        setOpponentPresent(true);
+        setGameReady(true);
+        
+        // Get player color from session data
+        if (isHost && sessionData.player_colors?.host) {
+          setPlayerColor(sessionData.player_colors.host);
+          setIsMyTurn(sessionData.player_colors.host === 'red');
+          localStorage.setItem('playerColor', sessionData.player_colors.host);
+        } else if (!isHost && sessionData.player_colors?.guest) {
+          setPlayerColor(sessionData.player_colors.guest);
+          setIsMyTurn(sessionData.player_colors.guest === 'red');
+          localStorage.setItem('playerColor', sessionData.player_colors.guest);
+        }
+        
+        // Auto-navigate to game screen
+        if (window.location.pathname.includes('/game/')) {
+          toast({
+            title: "Game Started",
+            description: "Opponent has joined. Game is ready!",
+          });
+        }
+      }
+    });
+    
+    setStatusSubscription(subscription);
+    return subscription;
+  };
 
   const createGame = async (): Promise<string | null> => {
     setIsLoading(true);
@@ -135,18 +153,24 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const newSessionId = await createGameSession();
       
       if (newSessionId) {
-        // We'll let the user select their color
+        // Auto-assign as red (host)
         setSessionId(newSessionId);
+        setPlayerColor('red');
         setIsHost(true);
         setIsConnected(true);
         setOpponentPresent(false);
         setGameReady(false);
+        setIsMyTurn(true); // Red always goes first
         
         localStorage.setItem('gameSessionId', newSessionId);
         localStorage.setItem('isHost', 'true');
+        localStorage.setItem('playerColor', 'red');
         
         // Set up presence channel
         await setupPresenceChannel(newSessionId, true);
+        
+        // Set up status subscription
+        setupStatusSubscription(newSessionId);
         
         // We're going to let the component handle navigation
         return newSessionId;
@@ -193,27 +217,25 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setIsHost(false);
       setIsConnected(true);
       setOpponentPresent(true);
-      setGameReady(false);
       
+      // Auto-assign as blue (guest)
+      setPlayerColor('blue');
+      localStorage.setItem('playerColor', 'blue');
       localStorage.setItem('gameSessionId', id);
       localStorage.setItem('isHost', 'false');
       
-      // Check if host has already selected a color
-      if (data.player_colors && data.player_colors.host) {
-        const hostColor = data.player_colors.host as PlayerType;
-        setOpponentColor(hostColor);
-        // Update available colors
-        const updatedColors = ["red", "blue"].filter(color => color !== hostColor) as PlayerType[];
-        setAvailableColors(updatedColors);
-      }
-      
       // Set up presence channel
       await setupPresenceChannel(id, false);
+      
+      // Set up status subscription
+      setupStatusSubscription(id);
       
       const success = await joinGameSession(id);
       if (!success) {
         return false;
       }
+      
+      setGameReady(true);
       
       // Redirect to game page
       navigate(`/game/${id}`);
@@ -231,56 +253,17 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
-  const selectColor = async (color: PlayerType): Promise<boolean> => {
-    if (!sessionId) return false;
-    
-    try {
-      setIsLoading(true);
-      const success = await updatePlayerColor(sessionId, isHost, color);
-      
-      if (success) {
-        setPlayerColor(color);
-        localStorage.setItem('playerColor', color);
-        setIsMyTurn(color === 'red'); // Red always goes first
-        
-        // Update available colors
-        const updatedColors = ["red", "blue"].filter(c => c !== color) as PlayerType[];
-        setAvailableColors(updatedColors);
-        
-        // Wait a moment and then check if opponent has selected a color
-        setTimeout(async () => {
-          const session = await getGameSession(sessionId);
-          if (session && session.player_colors) {
-            const hostColor = session.player_colors.host;
-            const guestColor = session.player_colors.guest;
-            
-            if (isHost && guestColor) {
-              setOpponentColor(guestColor);
-              setGameReady(true);
-            } else if (!isHost && hostColor) {
-              setOpponentColor(hostColor);
-              setGameReady(true);
-            }
-          }
-          setIsLoading(false);
-        }, 500);
-        
-        return true;
-      }
-      setIsLoading(false);
-      return false;
-    } catch (error) {
-      console.error("Error selecting color:", error);
-      setIsLoading(false);
-      return false;
-    }
-  };
-  
   const handleLeaveGame = () => {
     // Clean up presence channel
     if (presenceChannel) {
       presenceChannel.unsubscribe();
       setPresenceChannel(null);
+    }
+    
+    // Clean up status subscription
+    if (statusSubscription) {
+      statusSubscription.unsubscribe();
+      setStatusSubscription(null);
     }
     
     setSessionId(null);
@@ -289,9 +272,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setIsMyTurn(false);
     setIsConnected(false);
     setOpponentPresent(false);
-    setOpponentColor(null);
     setGameReady(false);
-    setAvailableColors(["red", "blue"]);
     
     localStorage.removeItem('gameSessionId');
     localStorage.removeItem('playerColor');
@@ -327,9 +308,6 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     leaveGame: handleLeaveGame,
     syncState,
     setMyTurn: setIsMyTurn,
-    selectColor,
-    availableColors,
-    opponentColor,
     gameReady
   };
 

@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Flag, Copy, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { subscribeToGameChanges } from "../utils/supabase";
-import ColorSelector from "../components/ColorSelector";
-import { PlayerType } from "../types/gameTypes";
 
 const GameMultiplayer = () => {
   const { sessionId } = useParams();
@@ -39,9 +37,6 @@ const GameMultiplayer = () => {
     opponentPresent,
     isHost,
     leaveGame,
-    selectColor,
-    availableColors,
-    opponentColor,
     gameReady
   } = useMultiplayer();
   
@@ -67,7 +62,7 @@ const GameMultiplayer = () => {
       return;
     }
 
-    setWaitingForOpponent(!opponentPresent);
+    setWaitingForOpponent(!opponentPresent || !gameReady);
 
     // Subscribe to game state changes
     const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
@@ -107,11 +102,6 @@ const GameMultiplayer = () => {
 
   // Calculate whether we won (if game is over)
   const isWinner = gameState.gameOver && gameState.winner === playerColor;
-
-  // Color selection handler
-  const handleColorSelect = async (color: PlayerType) => {
-    await selectColor(color);
-  };
 
   // Calculate stats for multiplayer mode
   const gameStats = {
@@ -184,16 +174,17 @@ const GameMultiplayer = () => {
                 <Copy size={16} />
               </Button>
             </div>
+            
+            <div className="text-center mt-4">
+              <p className="text-blue-200 mb-2">You will play as:</p>
+              <div className="flex items-center justify-center">
+                <div className={`w-8 h-8 rounded-full ${isHost ? "bg-red-600" : "bg-blue-600"} mr-2`}></div>
+                <span className="font-bold text-white text-lg">
+                  {isHost ? "Red" : "Blue"}
+                </span>
+              </div>
+            </div>
           </div>
-        ) : (!gameReady ? (
-          /* Color Selection Screen */
-          <ColorSelector 
-            availableColors={availableColors}
-            onSelectColor={handleColorSelect}
-            selectedColor={playerColor}
-            opponentColor={opponentColor}
-            isHost={isHost}
-          />
         ) : (
           /* Game Screen */
           <>
@@ -244,7 +235,7 @@ const GameMultiplayer = () => {
               isHitInCooldown={isHitInCooldown}
             />
           </>
-        ))}
+        )}
         
         <VictoryStats 
           isOpen={showStats}
