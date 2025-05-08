@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 const config: Config = {
@@ -58,9 +57,12 @@ const config: Config = {
           red: "#e53e3e",
           blue: "#3182ce",
           cell: "#2d3748",
-          energy: "#ecc94b",
-          board: "#2c3e6d", // Updated to match the blue border in the example
+          energy: "#f6e05e", // Brighter yellow for energy
+          board: "#2c3e6d",
           highlight: "#f6e05e",
+          "red-base": "#fecaca", // Darker red base
+          "blue-base": "#bfdbfe", // Darker blue base
+          "energy-cell": "#fef08a", // Bright yellow for energy cells
         }
       },
       borderRadius: {
@@ -82,8 +84,9 @@ const config: Config = {
           "100%": { transform: "scale(2)", opacity: "0" },
         },
         "pulse-energy": {
-          "0%, 100%": { transform: "scale(1)" },
-          "50%": { transform: "scale(1.2)", filter: "brightness(1.3)" },
+          "0%": { transform: "scale(1)", opacity: "0.8" },
+          "50%": { transform: "scale(1.2)", opacity: "1", filter: "brightness(1.3)" },
+          "100%": { transform: "scale(1)", opacity: "0.8" },
         },
         "glow": {
           "0%, 100%": { boxShadow: "0 0 5px 2px rgba(246, 224, 94, 0.3)" },
@@ -98,7 +101,7 @@ const config: Config = {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "hit-wave": "hit-wave 0.8s ease-out forwards",
-        "pulse-energy": "pulse-energy 0.8s ease-in-out infinite",
+        "pulse-energy": "pulse-energy 1.5s ease-in-out infinite",
         "glow": "glow 2s ease-in-out infinite",
         "float": "float 3s ease-in-out infinite",
       },

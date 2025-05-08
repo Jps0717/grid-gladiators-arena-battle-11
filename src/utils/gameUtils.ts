@@ -1,4 +1,3 @@
-
 import { Position, PlayerType, GameState, ValidMoves, Wall, CellType } from "../types/gameTypes";
 
 // Format seconds into MM:SS format
