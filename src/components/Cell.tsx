@@ -2,7 +2,7 @@
 import React from "react";
 import { Position, CellType } from "../types/gameTypes";
 import { cn } from "@/lib/utils";
-import { Zap, X } from "lucide-react";
+import { Zap, X, Ban } from "lucide-react";
 
 interface CellProps {
   position: Position;
@@ -50,7 +50,7 @@ const Cell: React.FC<CellProps> = ({
         getCellBaseStyle(),
         isHighlighted && !isInvalidWallPlacement && "ring-2 ring-game-highlight ring-opacity-70 shadow-lg",
         isHighlighted && !isInvalidWallPlacement && "after:absolute after:inset-0 after:bg-yellow-100/30 after:rounded",
-        isInvalidWallPlacement && "ring-2 ring-red-500 ring-opacity-70",
+        isInvalidWallPlacement && "ring-2 ring-red-500 ring-opacity-70 bg-red-100/30",
         hasWall && "bg-opacity-60"
       )}
       onClick={() => onClick(position)}
@@ -76,7 +76,10 @@ const Cell: React.FC<CellProps> = ({
       {/* Invalid wall placement indicator */}
       {isInvalidWallPlacement && (
         <div className="absolute inset-0 flex items-center justify-center z-10 animate-pulse">
-          <X size={24} className="text-red-600 stroke-[3]" />
+          <div className="absolute inset-0 bg-red-300/20 rounded"></div>
+          <div className="bg-white/70 rounded-full p-1 shadow-lg">
+            <Ban size={22} className="text-red-600 stroke-[2]" />
+          </div>
         </div>
       )}
       

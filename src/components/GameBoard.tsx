@@ -34,6 +34,14 @@ const GameBoard: React.FC<GameBoardProps> = ({
         const isHighlighted = highlightedCells.some(pos => positionsEqual(pos, position));
         const isInvalidWallPlacement = invalidWallCells.some(pos => positionsEqual(pos, position));
         
+        // Check if this is a "naturally" invalid cell for walls (base, jump zone)
+        const isInvalidNaturally = gameState.selectedAction === "wall" && 
+          (isBaseCell(position) || isAnyJumpZone(position)) &&
+          !isHighlighted;
+        
+        // Combine both types of invalid wall placements
+        const showInvalidWallIndicator = isInvalidWallPlacement || isInvalidNaturally;
+        
         const wallAtPosition = gameState.walls.find(wall => positionsEqual(wall.position, position));
         const isAnimatingHit = animatingHit.some(pos => positionsEqual(pos, position));
 
@@ -59,7 +67,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             type={cellType}
             isHighlighted={isHighlighted}
             isAnimatingHit={isAnimatingHit}
-            isInvalidWallPlacement={isInvalidWallPlacement}
+            isInvalidWallPlacement={showInvalidWallIndicator}
             hasWall={!!wallAtPosition}
             onClick={onCellClick}
           >

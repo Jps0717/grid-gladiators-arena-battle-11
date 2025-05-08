@@ -1,4 +1,3 @@
-
 import { useCallback, useRef, useState } from "react";
 import { 
   GameState, 
@@ -520,10 +519,10 @@ export const useGameActions = ({
           const currentPlayerPosition = gameState.currentPlayer === "red" ? gameState.redPosition : gameState.bluePosition;
           const opponentPosition = gameState.currentPlayer === "red" ? gameState.bluePosition : gameState.redPosition;
           
-          // Check if this is an invalid wall placement that's adjacent to the player
+          // Check if this is an invalid wall placement that's not already a wall
           if (!positionsEqual(position, currentPlayerPosition) && 
               !positionsEqual(position, opponentPosition) && 
-              !isBaseCell(position)) {
+              !findWallAtPosition(gameState.walls, position)) {
             
             // Set the invalid wall cell
             setInvalidWallCells([position]);
@@ -531,10 +530,16 @@ export const useGameActions = ({
             // Clear the invalid wall cell after a brief delay
             setTimeout(() => {
               setInvalidWallCells([]);
-            }, 1000);
+            }, 1500);
             
             // Show toast explaining why wall can't be placed
-            if (isAnyJumpZone(position)) {
+            if (isBaseCell(position)) {
+              toast({
+                title: "Invalid Wall Placement",
+                description: "Cannot place walls on base cells.",
+                variant: "destructive",
+              });
+            } else if (isAnyJumpZone(position)) {
               toast({
                 title: "Invalid Wall Placement",
                 description: "Cannot place walls on jump zones.",
@@ -547,6 +552,11 @@ export const useGameActions = ({
                 variant: "destructive",
               });
             }
+
+            // Play a sound effect if available
+            if (playSound) {
+              playSound('hit');
+            }
           }
         }
         break;
@@ -557,7 +567,8 @@ export const useGameActions = ({
     movePlayer, 
     placeWall, 
     setGameState, 
-    setInvalidWallCells
+    setInvalidWallCells,
+    playSound
   ]);
 
   // End turn manually
