@@ -36,7 +36,7 @@ const Cell: React.FC<CellProps> = ({
       case "extra-energy":
         return "bg-game-energy/20";
       default:
-        return "bg-game-cell";
+        return "bg-white"; // Changed from bg-game-cell to white
     }
   };
 
@@ -45,7 +45,7 @@ const Cell: React.FC<CellProps> = ({
       className={cn(
         "aspect-square relative flex items-center justify-center cursor-pointer transition-all duration-200",
         getCellBaseStyle(),
-        isHighlighted && "ring-2 ring-game-highlight ring-opacity-80 shadow-md",
+        isHighlighted && "bg-yellow-100 ring-2 ring-game-highlight ring-opacity-80 shadow-lg", // Enhanced highlighting
         hasWall && "bg-opacity-60"
       )}
       onClick={() => onClick(position)}

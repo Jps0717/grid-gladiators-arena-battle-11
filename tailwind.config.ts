@@ -57,7 +57,7 @@ const config: Config = {
         game: {
           red: "#e53e3e",
           blue: "#3182ce",
-          cell: "#2d3748",
+          cell: "#ffffff", // Updated to white
           energy: "#ecc94b",
           board: "#1a202c",
           highlight: "#f6e05e",
