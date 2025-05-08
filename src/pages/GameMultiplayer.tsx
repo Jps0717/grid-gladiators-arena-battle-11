@@ -167,9 +167,10 @@ const GameMultiplayer = () => {
               </Button>
             </div>
             
-            <div className="mt-2 bg-red-800/20 p-2 rounded border border-red-500">
-              <p className="text-red-200 text-sm">You are playing as 
-                <span className="font-bold text-red-300"> Red</span>
+            <div className={`mt-2 p-2 rounded border ${playerColor === 'red' ? 'bg-red-800/20 border-red-500' : 'bg-blue-800/20 border-blue-500'}`}>
+              <p className={`text-sm ${playerColor === 'red' ? 'text-red-200' : 'text-blue-200'}`}>
+                You are playing as 
+                <span className={`font-bold ${playerColor === 'red' ? 'text-red-300' : 'text-blue-300'}`}> {playerColor === 'red' ? 'Red' : 'Blue'}</span>
               </p>
             </div>
           </div>

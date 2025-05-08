@@ -57,10 +57,6 @@ const HomePage = () => {
                 />
               </div>
               
-              <div className="flex-col space-y-2">
-                <p className="text-xs text-blue-200">When you join, you'll play as the blue player</p>
-              </div>
-              
               <div className="flex gap-2">
                 <Button
                   onClick={() => setIsJoining(false)}
@@ -97,7 +93,7 @@ const HomePage = () => {
             >
               <Swords className="mr-2 h-5 w-5" />
               <span className="text-lg">
-                {isLoading ? "Creating Game..." : "Create Multiplayer Game (Red)"}
+                {isLoading ? "Creating Game..." : "Create Multiplayer Game"}
               </span>
             </Button>
             
@@ -106,7 +102,7 @@ const HomePage = () => {
               className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
             >
               <Users className="mr-2 h-5 w-5" />
-              <span className="text-lg">Join Multiplayer Game (Blue)</span>
+              <span className="text-lg">Join Multiplayer Game</span>
             </Button>
           </div>
         )}

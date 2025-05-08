@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { GameState, Position, PlayerData } from "../types/gameTypes";
+import { GameState, Position, PlayerData, PlayerType } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 
 // Check for Supabase credentials and use the correct Supabase URL and key
@@ -11,11 +11,11 @@ const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Create a new game session and return session ID
-export const createGameSession = async (initialPlayerColor: "red" | "blue"): Promise<string | null> => {
+export const createGameSession = async (): Promise<string | null> => {
   try {
     const initialGameState = {
       status: 'waiting', // waiting, active, completed
-      current_player: initialPlayerColor,
+      current_player: 'red', // Red always starts
       game_data: {},
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -45,7 +45,7 @@ export const createGameSession = async (initialPlayerColor: "red" | "blue"): Pro
 };
 
 // Join an existing game session
-export const joinGameSession = async (sessionId: string, playerColor: "red" | "blue"): Promise<boolean> => {
+export const joinGameSession = async (sessionId: string, playerColor: PlayerType): Promise<boolean> => {
   try {
     // First check if session exists and has available slots
     const { data: sessionData, error: sessionError } = await supabase
@@ -127,6 +127,42 @@ export const subscribeToGameChanges = (sessionId: string, callback: (gameState: 
       }
     )
     .subscribe();
+};
+
+// Subscribe to presence for real-time player tracking
+export const subscribeToGamePresence = async (sessionId: string, playerColor: PlayerType, isHost: boolean) => {
+  try {
+    const presenceChannel = supabase.channel(`presence_${sessionId}`);
+    
+    const playerStatus = {
+      player_color: playerColor,
+      is_host: isHost,
+      online_at: new Date().toISOString()
+    };
+    
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        console.log('Presence state updated:', state);
+        // You could use this to update UI showing online players
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('Player joined:', key, newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('Player left:', key, leftPresences);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track(playerStatus);
+        }
+      });
+      
+    return presenceChannel;
+  } catch (error) {
+    console.error("Error setting up presence:", error);
+    return null;
+  }
 };
 
 export const syncGameState = async (sessionId: string, gameState: GameState): Promise<void> => {
