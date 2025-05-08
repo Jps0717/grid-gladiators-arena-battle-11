@@ -37,7 +37,8 @@ export const useGameLogic = () => {
     handleCellClick,
     endTurn,
     triggerEnergyGainAnimation,
-    isHitInCooldown
+    isHitInCooldown,
+    invalidWallCells
   } = useGameActions({
     gameState,
     setGameState,
@@ -98,6 +99,7 @@ export const useGameLogic = () => {
     animatingHit,
     energyGainAnimation,
     energyGainPosition,
+    invalidWallCells,
     selectAction,
     handleCellClick,
     resetGame,

@@ -13,6 +13,7 @@ const Index = () => {
     highlightedCells,
     animatingHit,
     energyGainPosition,
+    invalidWallCells,
     selectAction,
     handleCellClick,
     resetGame,
@@ -92,6 +93,7 @@ const Index = () => {
             gameState={gameState}
             highlightedCells={highlightedCells}
             animatingHit={animatingHit}
+            invalidWallCells={invalidWallCells}
             energyGainPosition={energyGainPosition}
             onCellClick={handleCellClick}
           />

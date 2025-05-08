@@ -2,7 +2,7 @@
 import React from "react";
 import { Position, CellType } from "../types/gameTypes";
 import { cn } from "@/lib/utils";
-import { Zap } from "lucide-react";
+import { Zap, X } from "lucide-react";
 
 interface CellProps {
   position: Position;
@@ -10,6 +10,7 @@ interface CellProps {
   isHighlighted: boolean;
   isAnimatingHit: boolean;
   hasWall: boolean;
+  isInvalidWallPlacement?: boolean;
   onClick: (position: Position) => void;
   children?: React.ReactNode;
 }
@@ -20,6 +21,7 @@ const Cell: React.FC<CellProps> = ({
   isHighlighted,
   isAnimatingHit,
   hasWall,
+  isInvalidWallPlacement = false,
   onClick,
   children,
 }) => {
@@ -46,8 +48,9 @@ const Cell: React.FC<CellProps> = ({
       className={cn(
         "aspect-square relative flex items-center justify-center cursor-pointer transition-all duration-200 border border-gray-800",
         getCellBaseStyle(),
-        isHighlighted && "ring-2 ring-game-highlight ring-opacity-70 shadow-lg",
-        isHighlighted && "after:absolute after:inset-0 after:bg-yellow-100/30 after:rounded",
+        isHighlighted && !isInvalidWallPlacement && "ring-2 ring-game-highlight ring-opacity-70 shadow-lg",
+        isHighlighted && !isInvalidWallPlacement && "after:absolute after:inset-0 after:bg-yellow-100/30 after:rounded",
+        isInvalidWallPlacement && "ring-2 ring-red-500 ring-opacity-70",
         hasWall && "bg-opacity-60"
       )}
       onClick={() => onClick(position)}
@@ -67,6 +70,13 @@ const Cell: React.FC<CellProps> = ({
       {type === "extra-energy" && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Zap size={20} className="text-yellow-600 animate-pulse-energy" />
+        </div>
+      )}
+      
+      {/* Invalid wall placement indicator */}
+      {isInvalidWallPlacement && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 animate-pulse">
+          <X size={24} className="text-red-600 stroke-[3]" />
         </div>
       )}
       

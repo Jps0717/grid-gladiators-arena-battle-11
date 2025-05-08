@@ -4,12 +4,13 @@ import Cell from "./Cell";
 import GamePiece from "./GamePiece";
 import Wall from "./Wall";
 import { GameState, Position, CellType } from "../types/gameTypes";
-import { getCellClass, positionsEqual, isExtraEnergyCell } from "../utils/gameUtils";
+import { getCellClass, positionsEqual, isExtraEnergyCell, isAnyJumpZone, isBaseCell } from "../utils/gameUtils";
 
 interface GameBoardProps {
   gameState: GameState;
   highlightedCells: Position[];
   animatingHit: Position[];
+  invalidWallCells?: Position[];
   energyGainPosition?: Position | null;
   onCellClick: (position: Position) => void;
 }
@@ -18,6 +19,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   gameState,
   highlightedCells = [],
   animatingHit = [],
+  invalidWallCells = [],
   energyGainPosition = null,
   onCellClick,
 }) => {
@@ -30,6 +32,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
         const cellType: CellType = getCellClass(position, gameState);
 
         const isHighlighted = highlightedCells.some(pos => positionsEqual(pos, position));
+        const isInvalidWallPlacement = invalidWallCells.some(pos => positionsEqual(pos, position));
+        
         const wallAtPosition = gameState.walls.find(wall => positionsEqual(wall.position, position));
         const isAnimatingHit = animatingHit.some(pos => positionsEqual(pos, position));
 
@@ -55,6 +59,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             type={cellType}
             isHighlighted={isHighlighted}
             isAnimatingHit={isAnimatingHit}
+            isInvalidWallPlacement={isInvalidWallPlacement}
             hasWall={!!wallAtPosition}
             onClick={onCellClick}
           >

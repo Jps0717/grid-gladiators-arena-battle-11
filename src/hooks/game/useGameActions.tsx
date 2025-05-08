@@ -1,4 +1,3 @@
-
 import { useCallback, useRef, useState } from "react";
 import { 
   GameState, 
@@ -52,6 +51,9 @@ export const useGameActions = ({
   
   // Track hit cooldown state
   const [isHitInCooldown, setIsHitInCooldown] = useState(false);
+  
+  // Track invalid wall placements
+  const [invalidWallCells, setInvalidWallCells] = useState<Position[]>([]);
   
   // Check if a player has enough energy for an action
   const hasEnoughEnergy = useCallback((action: ActionType): boolean => {
@@ -292,6 +294,9 @@ export const useGameActions = ({
   const selectAction = useCallback((action: ActionType) => {
     setGameState((prev) => ({ ...prev, selectedAction: action }));
     
+    // Clear any invalid wall cells when switching actions
+    setInvalidWallCells([]);
+    
     // Update highlighted cells based on the selected action
     if (action === "move") {
       setHighlightedCells(validMoves.moves || []);
@@ -338,7 +343,8 @@ export const useGameActions = ({
     isHitInCooldown,
     hitAllAdjacentCells,
     setGameState,
-    setHighlightedCells
+    setHighlightedCells,
+    setInvalidWallCells
   ]);
 
   // Trigger energy gain animation
@@ -506,10 +512,50 @@ export const useGameActions = ({
       case "wall":
         if (validMoves.wallPlacements && validMoves.wallPlacements.some(pos => positionsEqual(pos, position))) {
           placeWall(position);
+        } else {
+          // Show invalid wall placement indicator
+          const currentPlayerPosition = gameState.currentPlayer === "red" ? gameState.redPosition : gameState.bluePosition;
+          const opponentPosition = gameState.currentPlayer === "red" ? gameState.bluePosition : gameState.redPosition;
+          
+          // Check if this is an invalid wall placement that's adjacent to the player
+          if (!positionsEqual(position, currentPlayerPosition) && 
+              !positionsEqual(position, opponentPosition) && 
+              !isBaseCell(position)) {
+            
+            // Set the invalid wall cell
+            setInvalidWallCells([position]);
+            
+            // Clear the invalid wall cell after a brief delay
+            setTimeout(() => {
+              setInvalidWallCells([]);
+            }, 1000);
+            
+            // Show toast explaining why wall can't be placed
+            if (isAnyJumpZone(position)) {
+              toast({
+                title: "Invalid Wall Placement",
+                description: "Cannot place walls on jump zones.",
+                variant: "destructive",
+              });
+            } else {
+              toast({
+                title: "Invalid Wall Placement",
+                description: "Cannot place walls here.",
+                variant: "destructive",
+              });
+            }
+          }
         }
         break;
     }
-  }, [gameState, validMoves, movePlayer, placeWall, setGameState]);
+  }, [
+    gameState, 
+    validMoves, 
+    movePlayer, 
+    placeWall, 
+    setGameState, 
+    setInvalidWallCells
+  ]);
 
   // End turn manually
   const endTurn = useCallback(() => {
@@ -527,6 +573,7 @@ export const useGameActions = ({
     handleCellClick,
     endTurn,
     triggerEnergyGainAnimation,
-    isHitInCooldown
+    isHitInCooldown,
+    invalidWallCells
   };
 };
