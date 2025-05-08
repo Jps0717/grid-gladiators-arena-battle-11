@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { GameState, PlayerType } from '../types/gameTypes';
 import { 
   subscribeToGameChanges,
-  subscribeToGamePresence, 
+  subscribeToPresence, 
   syncGameState, 
   createGameSession, 
   joinGameSession,
-  checkGameSession
+  checkGameSession,
+  hostSelectColor
 } from '../utils/supabase';
 import { toast } from '@/hooks/use-toast';
 
@@ -25,6 +26,8 @@ interface MultiplayerContextType {
   leaveGame: () => void;
   syncState: (gameState: GameState) => Promise<void>;
   setMyTurn: (isMyTurn: boolean) => void;
+  selectHostColor: (color: PlayerType) => Promise<boolean>;
+  waitingForColorSelection: boolean;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType | undefined>(undefined);
@@ -37,6 +40,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [opponentPresent, setOpponentPresent] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [waitingForColorSelection, setWaitingForColorSelection] = useState<boolean>(false);
   
   const navigate = useNavigate();
 
@@ -63,7 +67,27 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
           });
         } else if (exists && data) {
           setIsConnected(true);
-          setIsMyTurn(data.current_player === storedPlayerColor);
+          
+          if (data.player_colors && data.player_colors.host) {
+            setWaitingForColorSelection(false);
+            
+            // If we're the host, we get our color from the host field
+            if (storedIsHost) {
+              const hostColor = data.player_colors.host as PlayerType;
+              setPlayerColor(hostColor);
+              setIsMyTurn(data.current_player === hostColor);
+            } 
+            // If we're the guest, we get our color from the guest field
+            else if (data.player_colors.guest) {
+              const guestColor = data.player_colors.guest as PlayerType;
+              setPlayerColor(guestColor);
+              setIsMyTurn(data.current_player === guestColor);
+            }
+          } else if (storedIsHost) {
+            // If we're the host but colors aren't set, we need to select a color
+            setWaitingForColorSelection(true);
+          }
+          
           setOpponentPresent(data.status === 'active');
         }
       });
@@ -76,25 +100,32 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const newSessionId = await createGameSession();
       
       if (newSessionId) {
-        // Assign color to host (now random)
-        const hostColor: PlayerType = Math.random() < 0.5 ? 'red' : 'blue';
-        
         // Save to state and local storage
         setSessionId(newSessionId);
-        setPlayerColor(hostColor);
         setIsHost(true);
-        setIsMyTurn(hostColor === 'red'); // Red always goes first
         setIsConnected(true);
-        setOpponentPresent(false);
+        setWaitingForColorSelection(true);
         
         localStorage.setItem('gameSessionId', newSessionId);
-        localStorage.setItem('playerColor', hostColor);
         localStorage.setItem('isHost', 'true');
         
-        // Join presence channel for this game
-        await subscribeToGamePresence(newSessionId, hostColor, true);
+        // Setting up presence for this game
+        subscribeToPresence(newSessionId, true, { 
+          isHost: true,
+          joined_at: new Date().toISOString()
+        });
         
-        // We're going to let the component handle navigation
+        // Subscribe to game state changes
+        subscribeToGameChanges(newSessionId, (updatedGame) => {
+          if (updatedGame.status === 'active' && updatedGame.player_colors?.guest) {
+            setOpponentPresent(true);
+          }
+          
+          if (updatedGame.game_data && Object.keys(updatedGame.game_data).length > 0) {
+            // Handle game state updates
+          }
+        });
+        
         return newSessionId;
       }
       return null;
@@ -111,55 +142,79 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
+  const selectHostColor = async (color: PlayerType): Promise<boolean> => {
+    if (!sessionId || !isHost) return false;
+    
+    setIsLoading(true);
+    try {
+      const success = await hostSelectColor(sessionId, color);
+      
+      if (success) {
+        setPlayerColor(color);
+        setWaitingForColorSelection(false);
+        setIsMyTurn(color === 'red'); // Red always starts
+        
+        localStorage.setItem('playerColor', color);
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error selecting color:", error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   const joinGame = async (id: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       // Check if session exists
-      const { exists, data } = await checkGameSession(id);
+      const { success, playerColor: assignedColor } = await joinGameSession(id);
       
-      if (!exists || !data) {
-        toast({
-          title: "Game not found",
-          description: "The game session ID is invalid",
-          variant: "destructive",
-        });
+      if (!success) {
         return false;
       }
       
-      if (data.status !== 'waiting') {
-        toast({
-          title: "Cannot join game",
-          description: "This game is already full or has ended",
-          variant: "destructive",
-        });
-        return false;
+      setSessionId(id);
+      setIsHost(false);
+      setIsConnected(true);
+      
+      localStorage.setItem('gameSessionId', id);
+      localStorage.setItem('isHost', 'false');
+      
+      // If we got assigned a color, set it
+      if (assignedColor) {
+        setPlayerColor(assignedColor);
+        setIsMyTurn(assignedColor === 'red'); // Red always goes first
+        localStorage.setItem('playerColor', assignedColor);
       }
       
-      // Get the host's color from presence data and take the opposite
-      const hostColor = await getHostColor(id);
-      const guestColor: PlayerType = hostColor === 'red' ? 'blue' : 'red';
+      // Setting up presence for this game
+      subscribeToPresence(id, false, { 
+        isHost: false,
+        joined_at: new Date().toISOString()
+      });
       
-      const success = await joinGameSession(id, guestColor);
+      // Subscribe to game state changes
+      subscribeToGameChanges(id, (updatedGame) => {
+        // If host selected a color and we don't have one yet
+        if (updatedGame.player_colors?.host && !playerColor) {
+          const hostColor = updatedGame.player_colors.host as PlayerType;
+          const guestColor = hostColor === 'red' ? 'blue' : 'red';
+          setPlayerColor(guestColor);
+          setIsMyTurn(guestColor === 'red');
+          localStorage.setItem('playerColor', guestColor);
+        }
+        
+        if (updatedGame.game_data && Object.keys(updatedGame.game_data).length > 0) {
+          // Handle game state updates
+        }
+      });
       
-      if (success) {
-        setSessionId(id);
-        setPlayerColor(guestColor);
-        setIsHost(false);
-        setIsMyTurn(guestColor === 'red'); // Red always goes first
-        setIsConnected(true);
-        setOpponentPresent(true);
-        
-        localStorage.setItem('gameSessionId', id);
-        localStorage.setItem('playerColor', guestColor);
-        localStorage.setItem('isHost', 'false');
-        
-        // Join presence channel for this game
-        await subscribeToGamePresence(id, guestColor, false);
-        
-        navigate(`/game/${id}`);
-        return true;
-      }
-      return false;
+      navigate(`/game/${id}`);
+      return true;
     } catch (error) {
       console.error("Error joining game:", error);
       toast({
@@ -173,16 +228,6 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
-  const getHostColor = async (gameId: string): Promise<PlayerType> => {
-    try {
-      // Default to red if we can't determine
-      return 'red';
-    } catch (error) {
-      console.error("Error getting host color:", error);
-      return 'red';
-    }
-  };
-  
   const handleLeaveGame = () => {
     setSessionId(null);
     setPlayerColor(null);
@@ -190,6 +235,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setIsMyTurn(false);
     setIsConnected(false);
     setOpponentPresent(false);
+    setWaitingForColorSelection(false);
     
     localStorage.removeItem('gameSessionId');
     localStorage.removeItem('playerColor');
@@ -224,7 +270,9 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     joinGame,
     leaveGame: handleLeaveGame,
     syncState,
-    setMyTurn: setIsMyTurn
+    setMyTurn: setIsMyTurn,
+    selectHostColor,
+    waitingForColorSelection
   };
 
   return (

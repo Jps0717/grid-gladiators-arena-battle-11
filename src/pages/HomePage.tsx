@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Swords, Users, User, ArrowRight, AlertTriangle } from "lucide-react";
+import { Swords, Users, User, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
@@ -27,7 +27,7 @@ const HomePage = () => {
     await joinGame(gameCode.trim());
   };
   
-  const handlePlaySingleplayer = () => {
+  const handlePlayLocalMode = () => {
     navigate("/single-player");
   };
 
@@ -79,11 +79,11 @@ const HomePage = () => {
         ) : (
           <div className="space-y-4">
             <Button
-              onClick={handlePlaySingleplayer}
+              onClick={handlePlayLocalMode}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
             >
               <User className="mr-2 h-5 w-5" />
-              <span className="text-lg">Single Player Mode</span>
+              <span className="text-lg">Local Mode</span>
             </Button>
             
             <Button

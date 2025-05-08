@@ -15,6 +15,8 @@ export type Database = {
           current_player: string
           game_data: Json | null
           id: string
+          player_colors: Json | null
+          presence_data: Json | null
           status: string
           updated_at: string
         }
@@ -23,6 +25,8 @@ export type Database = {
           current_player?: string
           game_data?: Json | null
           id?: string
+          player_colors?: Json | null
+          presence_data?: Json | null
           status?: string
           updated_at?: string
         }
@@ -31,6 +35,8 @@ export type Database = {
           current_player?: string
           game_data?: Json | null
           id?: string
+          player_colors?: Json | null
+          presence_data?: Json | null
           status?: string
           updated_at?: string
         }
