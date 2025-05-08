@@ -18,6 +18,7 @@ const Index = () => {
     resetGame,
     endTurn,
     hasEnoughEnergy,
+    isHitInCooldown,
   } = useGameLogic();
   
   const [showStats, setShowStats] = useState(false);
@@ -103,6 +104,7 @@ const Index = () => {
           onResetGame={resetGame}
           onForfeit={handleForfeit}
           hasEnoughEnergy={hasEnoughEnergy}
+          isHitInCooldown={isHitInCooldown}
         />
         
         <VictoryStats 

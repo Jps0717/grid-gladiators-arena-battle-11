@@ -5,6 +5,7 @@ import { ActionType, GameState } from "../types/gameTypes";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Target, Square } from "lucide-react"; 
 import EnergyBattery from "./EnergyBattery";
+import CooldownIndicator from "./CooldownIndicator";
 
 interface GameControlsProps {
   gameState: GameState;
@@ -14,6 +15,7 @@ interface GameControlsProps {
   onForfeit: () => void;
   hasEnoughEnergy: (action: ActionType) => boolean;
   isMyTurn?: boolean;
+  isHitInCooldown?: boolean;
 }
 
 const GameControls: React.FC<GameControlsProps> = ({
@@ -24,6 +26,7 @@ const GameControls: React.FC<GameControlsProps> = ({
   onForfeit,
   hasEnoughEnergy,
   isMyTurn = true, // Default to true for single player mode
+  isHitInCooldown = false, // Default to false
 }) => {
   const currentEnergy = gameState.currentPlayer === "red" 
     ? gameState.redEnergy 
@@ -68,18 +71,21 @@ const GameControls: React.FC<GameControlsProps> = ({
               <ArrowRight className="mr-2" size={20} />
               Move
             </Button>
-            <Button
-              onClick={() => onSelectAction("hit")}
-              className={cn(
-                "bg-blue-700 hover:bg-blue-800 text-white py-3 px-4 rounded-lg flex items-center justify-center",
-                gameState.selectedAction === "hit" && "ring-2 ring-white",
-                (!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn) && "opacity-50 cursor-not-allowed"
-              )}
-              disabled={!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn}
-            >
-              <Target className="mr-2" size={20} />
-              Hit
-            </Button>
+            <div className="relative">
+              <Button
+                onClick={() => onSelectAction("hit")}
+                className={cn(
+                  "bg-blue-700 hover:bg-blue-800 text-white py-3 px-4 rounded-lg flex items-center justify-center w-full",
+                  gameState.selectedAction === "hit" && "ring-2 ring-white",
+                  (!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn) && "opacity-50 cursor-not-allowed"
+                )}
+                disabled={!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn}
+              >
+                <Target className="mr-2" size={20} />
+                Hit
+              </Button>
+              <CooldownIndicator isActive={isHitInCooldown && isMyTurn} />
+            </div>
             <Button
               onClick={() => onSelectAction("wall")}
               className={cn(
