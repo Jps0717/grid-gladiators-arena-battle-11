@@ -2,7 +2,7 @@
 import React from "react";
 import { Position, CellType } from "../types/gameTypes";
 import { cn } from "@/lib/utils";
-import { Zap, X, Ban } from "lucide-react";
+import { Zap, Ban } from "lucide-react";
 
 interface CellProps {
   position: Position;
@@ -73,7 +73,7 @@ const Cell: React.FC<CellProps> = ({
         </div>
       )}
       
-      {/* Invalid wall placement indicator */}
+      {/* Only show invalid wall placement indicator when explicitly flagged */}
       {isInvalidWallPlacement && (
         <div className="absolute inset-0 flex items-center justify-center z-10 animate-pulse">
           <div className="absolute inset-0 bg-red-300/20 rounded"></div>

@@ -4,7 +4,7 @@ import Cell from "./Cell";
 import GamePiece from "./GamePiece";
 import Wall from "./Wall";
 import { GameState, Position, CellType } from "../types/gameTypes";
-import { getCellClass, positionsEqual, isExtraEnergyCell, isAnyJumpZone, isBaseCell } from "../utils/gameUtils";
+import { getCellClass, positionsEqual, isExtraEnergyCell } from "../utils/gameUtils";
 
 interface GameBoardProps {
   gameState: GameState;
@@ -32,15 +32,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
         const cellType: CellType = getCellClass(position, gameState);
 
         const isHighlighted = highlightedCells.some(pos => positionsEqual(pos, position));
+        
+        // Only show invalid wall placement indicator for cells that were explicitly clicked
         const isInvalidWallPlacement = invalidWallCells.some(pos => positionsEqual(pos, position));
-        
-        // Check if this is a "naturally" invalid cell for walls (base, jump zone)
-        const isInvalidNaturally = gameState.selectedAction === "wall" && 
-          (isBaseCell(position) || isAnyJumpZone(position)) &&
-          !isHighlighted;
-        
-        // Combine both types of invalid wall placements
-        const showInvalidWallIndicator = isInvalidWallPlacement || isInvalidNaturally;
         
         const wallAtPosition = gameState.walls.find(wall => positionsEqual(wall.position, position));
         const isAnimatingHit = animatingHit.some(pos => positionsEqual(pos, position));
@@ -67,7 +61,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             type={cellType}
             isHighlighted={isHighlighted}
             isAnimatingHit={isAnimatingHit}
-            isInvalidWallPlacement={showInvalidWallIndicator}
+            isInvalidWallPlacement={isInvalidWallPlacement}
             hasWall={!!wallAtPosition}
             onClick={onCellClick}
           >
