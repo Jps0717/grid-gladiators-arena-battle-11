@@ -32,14 +32,25 @@ const Wall: React.FC<WallProps> = ({ wall }) => {
         {wall.hp === 1 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-full h-full overflow-hidden">
+              {/* Main horizontal crack */}
+              <div className="absolute top-[45%] left-0 h-[3px] w-full bg-gray-900 transform -translate-y-1/2 skew-y-3">
+                <div className="absolute top-[-1px] left-[30%] h-[1px] w-[40%] bg-gray-700"></div>
+                <div className="absolute bottom-[-1px] left-[20%] h-[1px] w-[30%] bg-gray-700"></div>
+              </div>
+              
               {/* Left crack */}
-              <div className="absolute top-0 left-1/4 h-full w-0.5 bg-gray-800 transform -rotate-12"></div>
+              <div className="absolute top-0 left-[30%] h-full w-[2px] bg-gray-900 transform -rotate-[15deg]">
+                <div className="absolute top-[40%] -left-[2px] h-[20%] w-[1px] bg-gray-700 transform rotate-[30deg]"></div>
+              </div>
               
               {/* Right crack */}
-              <div className="absolute top-1/4 right-1/3 h-3/4 w-0.5 bg-gray-800 transform rotate-12"></div>
+              <div className="absolute top-[20%] right-[25%] h-[80%] w-[2px] bg-gray-900 transform rotate-[12deg]">
+                <div className="absolute top-[30%] -right-[2px] h-[15%] w-[1px] bg-gray-700 transform -rotate-[25deg]"></div>
+              </div>
               
-              {/* Horizontal crack */}
-              <div className="absolute top-1/2 left-0 h-0.5 w-full bg-gray-800 transform -translate-y-1/2 skew-y-3"></div>
+              {/* Small diagonal cracks */}
+              <div className="absolute top-[15%] left-[60%] h-[25%] w-[1px] bg-gray-800 transform rotate-[35deg]"></div>
+              <div className="absolute bottom-[20%] left-[15%] h-[15%] w-[1px] bg-gray-800 transform -rotate-[20deg]"></div>
             </div>
           </div>
         )}

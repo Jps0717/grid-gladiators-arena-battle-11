@@ -85,12 +85,17 @@ const config: Config = {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(1.2)", filter: "brightness(1.3)" },
         },
+        "glow": {
+          "0%, 100%": { boxShadow: "0 0 5px 2px rgba(246, 224, 94, 0.3)" },
+          "50%": { boxShadow: "0 0 10px 4px rgba(246, 224, 94, 0.5)" },
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "hit-wave": "hit-wave 0.8s ease-out forwards",
         "pulse-energy": "pulse-energy 0.8s ease-in-out infinite",
+        "glow": "glow 2s ease-in-out infinite",
       },
     },
   },

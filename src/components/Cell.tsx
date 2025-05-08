@@ -26,15 +26,15 @@ const Cell: React.FC<CellProps> = ({
   const getCellBaseStyle = () => {
     switch (type) {
       case "base-red":
-        return "bg-game-red/30";
+        return "bg-game-red/20";
       case "base-blue":
-        return "bg-game-blue/30";
+        return "bg-game-blue/20";
       case "jump-red":
         return "bg-red-200";
       case "jump-blue":
         return "bg-blue-200";
       case "extra-energy":
-        return "bg-game-energy/20";
+        return "bg-game-energy/30";
       default:
         return "bg-white";
     }
@@ -45,7 +45,8 @@ const Cell: React.FC<CellProps> = ({
       className={cn(
         "aspect-square relative flex items-center justify-center cursor-pointer transition-all duration-200",
         getCellBaseStyle(),
-        isHighlighted && "bg-yellow-100 ring-2 ring-game-highlight ring-opacity-80 shadow-md",
+        isHighlighted && "ring-2 ring-game-highlight shadow-md",
+        isHighlighted && "after:absolute after:inset-0 after:bg-yellow-100/40 after:rounded",
         hasWall && "bg-opacity-60"
       )}
       onClick={() => onClick(position)}
@@ -64,7 +65,7 @@ const Cell: React.FC<CellProps> = ({
       )}
       {type === "extra-energy" && (
         <div className="absolute w-full h-full flex items-center justify-center">
-          <div className="w-6 h-6 animate-pulse text-yellow-400">
+          <div className="w-7 h-7 animate-pulse text-yellow-500 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]">
             ⚡
           </div>
         </div>
