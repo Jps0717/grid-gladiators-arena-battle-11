@@ -21,7 +21,7 @@ const App = () => (
         <MultiplayerProvider>
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/single-player" element={<Index />} />
+            <Route path="/local" element={<Index />} />
             <Route path="/game/:sessionId" element={<GameMultiplayer />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

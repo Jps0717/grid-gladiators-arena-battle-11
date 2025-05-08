@@ -12,9 +12,6 @@ const HomePage = () => {
   const [isJoining, setIsJoining] = useState(false);
   const navigate = useNavigate();
   
-  // We know Supabase is now configured
-  const isSupabaseConfigured = true;
-  
   const handleCreateGame = async () => {
     const sessionId = await createGame();
     if (sessionId) {
@@ -27,8 +24,8 @@ const HomePage = () => {
     await joinGame(gameCode.trim());
   };
   
-  const handlePlaySingleplayer = () => {
-    navigate("/single-player");
+  const handlePlayLocal = () => {
+    navigate("/local");
   };
 
   return (
@@ -79,11 +76,11 @@ const HomePage = () => {
         ) : (
           <div className="space-y-4">
             <Button
-              onClick={handlePlaySingleplayer}
+              onClick={handlePlayLocal}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
             >
               <User className="mr-2 h-5 w-5" />
-              <span className="text-lg">Single Player Mode</span>
+              <span className="text-lg">Local Mode</span>
             </Button>
             
             <Button
@@ -93,7 +90,7 @@ const HomePage = () => {
             >
               <Swords className="mr-2 h-5 w-5" />
               <span className="text-lg">
-                {isLoading ? "Creating Game..." : "Create Multiplayer Game"}
+                {isLoading ? "Creating Game..." : "Create Online Game"}
               </span>
             </Button>
             
@@ -102,7 +99,7 @@ const HomePage = () => {
               className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
             >
               <Users className="mr-2 h-5 w-5" />
-              <span className="text-lg">Join Multiplayer Game</span>
+              <span className="text-lg">Join Online Game</span>
             </Button>
           </div>
         )}

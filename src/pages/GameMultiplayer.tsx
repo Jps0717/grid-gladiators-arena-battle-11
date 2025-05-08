@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Flag, Copy, Users, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { subscribeToGameChanges } from "../utils/supabase";
+import ColorSelector from "../components/ColorSelector";
+import { PlayerType } from "../types/gameTypes";
 
 const GameMultiplayer = () => {
   const { sessionId } = useParams();
@@ -31,11 +33,16 @@ const GameMultiplayer = () => {
   } = useGameLogic();
   
   const { 
-    playerColor, 
+    playerColor,
     isMyTurn, 
     isConnected, 
     opponentPresent,
-    leaveGame 
+    isHost,
+    leaveGame,
+    selectColor,
+    availableColors,
+    opponentColor,
+    gameReady
   } = useMultiplayer();
   
   const [showStats, setShowStats] = useState(false);
@@ -50,12 +57,6 @@ const GameMultiplayer = () => {
         description: "Share this code with your friend to join the game",
       });
     }
-  };
-
-  // Handle going back to home
-  const handleBackToHome = () => {
-    leaveGame();
-    navigate('/');
   };
 
   // Initialize game session connection
@@ -74,20 +75,22 @@ const GameMultiplayer = () => {
     });
 
     // Initial sync (get latest game state)
-    syncWithDatabase(sessionId).catch(console.error);
+    if (gameReady) {
+      syncWithDatabase(sessionId).catch(console.error);
+    }
 
     // Clean up subscription when component unmounts
     return () => {
       subscription.unsubscribe();
     };
-  }, [sessionId, isConnected, opponentPresent]);
+  }, [sessionId, isConnected, opponentPresent, gameReady]);
 
   // Sync game state to database when it changes locally
   useEffect(() => {
-    if (sessionId && isMyTurn) {
+    if (sessionId && isMyTurn && gameReady) {
       syncWithDatabase(sessionId).catch(console.error);
     }
-  }, [gameState, isMyTurn, sessionId]);
+  }, [gameState, isMyTurn, sessionId, gameReady]);
 
   // Show victory stats when game is over
   useEffect(() => {
@@ -98,6 +101,11 @@ const GameMultiplayer = () => {
 
   // Calculate whether we won (if game is over)
   const isWinner = gameState.gameOver && gameState.winner === playerColor;
+
+  // Color selection handler
+  const handleColorSelect = async (color: PlayerType) => {
+    await selectColor(color);
+  };
 
   // Calculate stats for multiplayer mode
   const gameStats = {
@@ -121,28 +129,32 @@ const GameMultiplayer = () => {
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
       <div className="w-full max-w-2xl mx-auto">
-        {/* Header with back button */}
+        {/* Header with game code */}
         <div className="flex justify-between items-center mb-6">
-          <Button 
-            variant="ghost" 
-            className="text-white hover:bg-blue-700/50" 
-            onClick={handleBackToHome}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Button>
-          
-          <div className="flex items-center">
-            {sessionId && (
+          {sessionId && (
+            <div className="flex items-center bg-blue-700/50 px-3 py-1 rounded-lg">
+              <span className="text-sm font-mono text-white mr-2">Game Code: {sessionId}</span>
               <Button 
-                variant="outline" 
-                className="bg-blue-700/50 border-blue-400 text-white hover:bg-blue-600 flex items-center gap-2"
+                variant="ghost" 
+                size="sm" 
+                className="text-white hover:bg-blue-600 p-1 h-6 w-6"
                 onClick={copySessionId}
               >
-                <Copy size={16} />
-                Copy Game Code
+                <Copy size={14} />
               </Button>
-            )}
+            </div>
+          )}
+          
+          <div>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              className="bg-red-600 hover:bg-red-700"
+              onClick={leaveGame}
+            >
+              <Flag className="mr-1 h-3.5 w-3.5" />
+              Leave Game
+            </Button>
           </div>
         </div>
 
@@ -166,15 +178,18 @@ const GameMultiplayer = () => {
                 <Copy size={16} />
               </Button>
             </div>
-            
-            <div className={`mt-2 p-2 rounded border ${playerColor === 'red' ? 'bg-red-800/20 border-red-500' : 'bg-blue-800/20 border-blue-500'}`}>
-              <p className={`text-sm ${playerColor === 'red' ? 'text-red-200' : 'text-blue-200'}`}>
-                You are playing as 
-                <span className={`font-bold ${playerColor === 'red' ? 'text-red-300' : 'text-blue-300'}`}> {playerColor === 'red' ? 'Red' : 'Blue'}</span>
-              </p>
-            </div>
           </div>
+        ) : (!gameReady ? (
+          /* Color Selection Screen */
+          <ColorSelector 
+            availableColors={availableColors}
+            onSelectColor={handleColorSelect}
+            selectedColor={playerColor}
+            opponentColor={opponentColor}
+            isHost={isHost}
+          />
         ) : (
+          /* Game Screen */
           <>
             {/* Game status bar */}
             <div className="flex justify-between items-center mb-6">
@@ -198,14 +213,6 @@ const GameMultiplayer = () => {
                     You: <span className="font-bold">{playerColor === "red" ? "Red" : "Blue"}</span>
                   </p>
                 </div>
-                <Button 
-                  onClick={leaveGame}
-                  className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg flex items-center"
-                  disabled={gameState.gameOver}
-                >
-                  <Flag className="mr-2 h-4 w-4" />
-                  Forfeit Game
-                </Button>
               </div>
             </div>
             
@@ -222,8 +229,8 @@ const GameMultiplayer = () => {
             
             <GameControls
               gameState={gameState}
-              onSelectAction={selectAction}
-              onEndTurn={endTurn}
+              onSelectAction={isMyTurn ? selectAction : () => {}}
+              onEndTurn={isMyTurn ? endTurn : () => {}}
               onResetGame={resetGame}
               onForfeit={leaveGame}
               hasEnoughEnergy={hasEnoughEnergy}
@@ -231,7 +238,7 @@ const GameMultiplayer = () => {
               isHitInCooldown={isHitInCooldown}
             />
           </>
-        )}
+        ))}
         
         <VictoryStats 
           isOpen={showStats}

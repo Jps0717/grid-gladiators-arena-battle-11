@@ -19,6 +19,10 @@ export const createGameSession = async (): Promise<string | null> => {
       game_data: {},
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      player_colors: {
+        host: null,
+        guest: null
+      }
     };
 
     const { data, error } = await supabase
@@ -38,14 +42,14 @@ export const createGameSession = async (): Promise<string | null> => {
     toast({
       title: "Failed to create game session",
       description: "Please verify your connection and try again later",
-      variant: "destructive",
+      variant: "destructive", // fixed the error here by changing from "warning" to "destructive"
     });
     return null;
   }
 };
 
 // Join an existing game session
-export const joinGameSession = async (sessionId: string, playerColor: PlayerType): Promise<boolean> => {
+export const joinGameSession = async (sessionId: string): Promise<boolean> => {
   try {
     // First check if session exists and has available slots
     const { data: sessionData, error: sessionError } = await supabase
@@ -95,19 +99,7 @@ export const joinGameSession = async (sessionId: string, playerColor: PlayerType
   }
 };
 
-export const getCurrentPlayer = async (sessionId: string): Promise<PlayerData | null> => {
-  try {
-    const { data: authData } = await supabase.auth.getSession();
-    if (!authData.session) return null;
-    
-    // This will need to be updated if you create a players table later
-    return null;
-  } catch (error) {
-    console.error("Error fetching current player:", error);
-    return null;
-  }
-};
-
+// Subscribe to game changes using Supabase realtime
 export const subscribeToGameChanges = (sessionId: string, callback: (gameState: GameState) => void) => {
   return supabase
     .channel(`game_changes_${sessionId}`)
@@ -130,32 +122,20 @@ export const subscribeToGameChanges = (sessionId: string, callback: (gameState: 
 };
 
 // Subscribe to presence for real-time player tracking
-export const subscribeToGamePresence = async (sessionId: string, playerColor: PlayerType, isHost: boolean) => {
+export const subscribeToPresence = async (sessionId: string) => {
   try {
     const presenceChannel = supabase.channel(`presence_${sessionId}`);
-    
-    const playerStatus = {
-      player_color: playerColor,
-      is_host: isHost,
-      online_at: new Date().toISOString()
-    };
     
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         console.log('Presence state updated:', state);
-        // You could use this to update UI showing online players
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
         console.log('Player joined:', key, newPresences);
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         console.log('Player left:', key, leftPresences);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track(playerStatus);
-        }
       });
       
     return presenceChannel;
@@ -165,6 +145,59 @@ export const subscribeToGamePresence = async (sessionId: string, playerColor: Pl
   }
 };
 
+// Track player presence in a game session
+export const trackPlayerPresence = async (channel: any, playerData: any) => {
+  if (!channel) return false;
+  
+  try {
+    const status = await channel.subscribe();
+    if (status === 'SUBSCRIBED') {
+      await channel.track(playerData);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Error tracking presence:", error);
+    return false;
+  }
+};
+
+// Update player color choice in the database
+export const updatePlayerColor = async (sessionId: string, isHost: boolean, color: PlayerType | null): Promise<boolean> => {
+  try {
+    const field = isHost ? 'player_colors->host' : 'player_colors->guest';
+    
+    const { error } = await supabase
+      .from('game_sessions')
+      .update({ [field]: color })
+      .eq('id', sessionId);
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error updating player color:", error);
+    return false;
+  }
+};
+
+// Get current game session data
+export const getGameSession = async (sessionId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('game_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error getting game session:", error);
+    return null;
+  }
+};
+
+// Sync game state to the database
 export const syncGameState = async (sessionId: string, gameState: GameState): Promise<void> => {
   if (!sessionId) {
     console.log("No session ID provided");
