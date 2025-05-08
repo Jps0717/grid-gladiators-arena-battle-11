@@ -1,5 +1,5 @@
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { 
   GameState, 
   Position, 
@@ -50,6 +50,9 @@ export const useGameActions = ({
   // Track if the last action was a hit
   const lastActionWasHit = useRef(false);
   
+  // Track hit cooldown state
+  const [isHitInCooldown, setIsHitInCooldown] = useState(false);
+  
   // Check if a player has enough energy for an action
   const hasEnoughEnergy = useCallback((action: ActionType): boolean => {
     const currentEnergy = gameState.currentPlayer === "red" 
@@ -61,6 +64,11 @@ export const useGameActions = ({
       return false;
     }
     
+    // Check if hit is in cooldown
+    if (action === "hit" && isHitInCooldown) {
+      return false;
+    }
+    
     if (action === "move" && currentEnergy < 1) return false;
     if (action === "wall" && currentEnergy < 1) return false;
     
@@ -68,7 +76,7 @@ export const useGameActions = ({
     if (action === "hit" && hitUsedCount >= currentEnergy) return false;
     
     return true;
-  }, [gameState.redEnergy, gameState.blueEnergy, gameState.currentPlayer, gameState.actionsDisabled, hitUsedCount]);
+  }, [gameState.redEnergy, gameState.blueEnergy, gameState.currentPlayer, gameState.actionsDisabled, hitUsedCount, isHitInCooldown]);
 
   // Reset game
   const resetGame = useCallback(() => {
@@ -80,6 +88,7 @@ export const useGameActions = ({
     setAnimatingHit([]);
     setHitUsedCount(0);
     lastActionWasHit.current = false;
+    setIsHitInCooldown(false);
     
     // Add a toast to inform the user about the reset with the randomized starting player
     setTimeout(() => {
@@ -119,6 +128,9 @@ export const useGameActions = ({
     // Reset the lastActionWasHit flag when switching players
     lastActionWasHit.current = false;
     
+    // Reset hit cooldown when switching players
+    setIsHitInCooldown(false);
+    
     toast({
       title: `${gameState.currentPlayer === "red" ? "Blue" : "Red"}'s Turn`,
       description: `${gameState.currentPlayer === "red" ? "Blue" : "Red"} player, it's your turn now!`,
@@ -127,6 +139,16 @@ export const useGameActions = ({
 
   // Hit adjacent cells
   const hitAllAdjacentCells = useCallback(() => {
+    // Check if hit is in cooldown
+    if (isHitInCooldown) {
+      toast({
+        title: "Hit on Cooldown",
+        description: "Hit action is still on cooldown.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Check if player has already used hit the maximum number of times
     const currentEnergy = gameState.currentPlayer === "red" 
       ? gameState.redEnergy 
@@ -140,6 +162,9 @@ export const useGameActions = ({
       });
       return;
     }
+    
+    // Start cooldown
+    setIsHitInCooldown(true);
     
     // Get current player position
     const currentPlayerPosition = 
@@ -242,6 +267,12 @@ export const useGameActions = ({
       // Clear highlighted cells
       setHighlightedCells([]);
       
+      // Set a timeout for the cooldown (1.5x the animation time)
+      // Animation time is 800ms, so 1.5x is 1200ms
+      setTimeout(() => {
+        setIsHitInCooldown(false);
+      }, 1200); // 1.5x the animation time of 800ms
+      
     }, 800); // Delay to match the animation
   }, [
     gameState.currentPlayer, 
@@ -249,7 +280,8 @@ export const useGameActions = ({
     gameState.bluePosition, 
     gameState.redEnergy, 
     gameState.blueEnergy, 
-    hitUsedCount, 
+    hitUsedCount,
+    isHitInCooldown,
     setAnimatingHit, 
     setGameState, 
     setHitUsedCount, 
@@ -266,6 +298,16 @@ export const useGameActions = ({
       // Reset the lastActionWasHit flag when switching to move action
       lastActionWasHit.current = false;
     } else if (action === "hit") {
+      // Check if hit is in cooldown
+      if (isHitInCooldown) {
+        toast({
+          title: "Hit on Cooldown",
+          description: "Hit action is still on cooldown.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Check if player has already used hit the maximum number of times
       const currentEnergy = gameState.currentPlayer === "red" 
         ? gameState.redEnergy 
@@ -292,7 +334,8 @@ export const useGameActions = ({
     gameState.currentPlayer, 
     gameState.redEnergy, 
     gameState.blueEnergy, 
-    hitUsedCount, 
+    hitUsedCount,
+    isHitInCooldown,
     hitAllAdjacentCells,
     setGameState,
     setHighlightedCells
@@ -483,6 +526,7 @@ export const useGameActions = ({
     placeWall,
     handleCellClick,
     endTurn,
-    triggerEnergyGainAnimation
+    triggerEnergyGainAnimation,
+    isHitInCooldown
   };
 };
