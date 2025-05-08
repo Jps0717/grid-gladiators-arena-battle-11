@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Swords, Users, User, ArrowRight } from "lucide-react";
+import { Swords, Users, User, ArrowRight, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
@@ -11,6 +11,9 @@ const HomePage = () => {
   const [gameCode, setGameCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const navigate = useNavigate();
+  
+  // Check if Supabase is configured
+  const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL;
   
   const handleCreateGame = async () => {
     await createGame();
@@ -32,6 +35,15 @@ const HomePage = () => {
           <h1 className="text-4xl font-bold text-white mb-2">Tactical Grid</h1>
           <p className="text-blue-200">A strategic board game of movement and walls</p>
         </div>
+        
+        {!isSupabaseConfigured && (
+          <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertTriangle className="h-6 w-6 text-yellow-500 flex-shrink-0" />
+            <p className="text-white text-sm">
+              To use multiplayer features, connect this project to Supabase using the green button in the top right corner.
+            </p>
+          </div>
+        )}
         
         {isJoining ? (
           <div className="bg-blue-700/40 p-6 rounded-lg border border-blue-500">
@@ -61,7 +73,7 @@ const HomePage = () => {
                 </Button>
                 <Button
                   onClick={handleJoinGame}
-                  disabled={!gameCode.trim() || isLoading}
+                  disabled={!gameCode.trim() || isLoading || !isSupabaseConfigured}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
                 >
                   {isLoading ? "Joining..." : "Join Game"}
@@ -82,7 +94,7 @@ const HomePage = () => {
             
             <Button
               onClick={handleCreateGame}
-              disabled={isLoading}
+              disabled={isLoading || !isSupabaseConfigured}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
             >
               <Swords className="mr-2 h-5 w-5" />
@@ -93,6 +105,7 @@ const HomePage = () => {
             
             <Button
               onClick={() => setIsJoining(true)}
+              disabled={!isSupabaseConfigured}
               className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
             >
               <Users className="mr-2 h-5 w-5" />

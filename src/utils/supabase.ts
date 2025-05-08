@@ -3,15 +3,79 @@ import { createClient } from '@supabase/supabase-js';
 import { GameState, Position, PlayerData } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 
-// Create a Supabase client (the URL and anon key will be injected by the Lovable+Supabase integration)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Check for Supabase credentials and provide appropriate values or fallbacks
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create a Supabase client with error handling
+let supabase;
+try {
+  if (!supabaseUrl) {
+    console.error('Missing Supabase URL. Please make sure you have connected your project to Supabase.');
+    // Create a mock client with no-op methods to prevent application crashes
+    supabase = {
+      from: () => ({
+        insert: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
+        select: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
+        update: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
+        eq: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
+        single: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
+      }),
+      channel: () => ({
+        on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
+      }),
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      },
+    };
+    
+    // Show a toast notification to alert the user
+    setTimeout(() => {
+      toast({
+        title: "Supabase Connection Error",
+        description: "To enable multiplayer features, connect your project to Supabase using the green button in the top right.",
+        variant: "destructive",
+      });
+    }, 1000);
+  } else {
+    // Create the actual Supabase client if URL is available
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+  }
+} catch (error) {
+  console.error('Failed to initialize Supabase client:', error);
+  // Create mock client as fallback
+  supabase = {
+    from: () => ({
+      insert: () => Promise.resolve({ data: null, error: new Error('Supabase client initialization failed') }),
+      select: () => Promise.resolve({ data: null, error: new Error('Supabase client initialization failed') }),
+      update: () => Promise.resolve({ data: null, error: new Error('Supabase client initialization failed') }),
+      eq: () => Promise.resolve({ data: null, error: new Error('Supabase client initialization failed') }),
+      single: () => Promise.resolve({ data: null, error: new Error('Supabase client initialization failed') }),
+    }),
+    channel: () => ({
+      on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
+    }),
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    },
+  };
+}
+
+export { supabase };
 
 // Create a new game session and return session ID
 export const createGameSession = async (initialPlayerColor: "red" | "blue"): Promise<string | null> => {
   try {
+    // Check if Supabase is properly configured
+    if (!supabaseUrl) {
+      toast({
+        title: "Supabase not configured",
+        description: "To use multiplayer features, please connect your project to Supabase using the green button in the top right.",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
     const initialGameState = {
       status: 'waiting', // waiting, active, completed
       current_player: initialPlayerColor,
@@ -36,7 +100,7 @@ export const createGameSession = async (initialPlayerColor: "red" | "blue"): Pro
     console.error("Error creating game session:", error);
     toast({
       title: "Failed to create game session",
-      description: "Please try again later",
+      description: "Please verify your Supabase connection and try again later",
       variant: "destructive",
     });
     return null;
@@ -46,6 +110,16 @@ export const createGameSession = async (initialPlayerColor: "red" | "blue"): Pro
 // Join an existing game session
 export const joinGameSession = async (sessionId: string, playerColor: "red" | "blue"): Promise<boolean> => {
   try {
+    // Check if Supabase is properly configured
+    if (!supabaseUrl) {
+      toast({
+        title: "Supabase not configured",
+        description: "To use multiplayer features, please connect your project to Supabase using the green button in the top right.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
     // First check if session exists and has available slots
     const { data: sessionData, error: sessionError } = await supabase
       .from('game_sessions')
@@ -94,9 +168,11 @@ export const joinGameSession = async (sessionId: string, playerColor: "red" | "b
   }
 };
 
-// Get current player data
 export const getCurrentPlayer = async (sessionId: string): Promise<PlayerData | null> => {
   try {
+    // Check if Supabase is properly configured
+    if (!supabaseUrl) return null;
+    
     const { data: authData } = await supabase.auth.getSession();
     if (!authData.session) return null;
     
@@ -115,8 +191,14 @@ export const getCurrentPlayer = async (sessionId: string): Promise<PlayerData | 
   }
 };
 
-// Subscribe to game state changes
 export const subscribeToGameChanges = (sessionId: string, callback: (gameState: GameState) => void) => {
+  // Check if Supabase is properly configured
+  if (!supabaseUrl) {
+    return {
+      unsubscribe: () => {}
+    };
+  }
+  
   return supabase
     .channel(`game_changes_${sessionId}`)
     .on(
@@ -137,10 +219,9 @@ export const subscribeToGameChanges = (sessionId: string, callback: (gameState: 
     .subscribe();
 };
 
-// Sync game state with Supabase
 export const syncGameState = async (sessionId: string, gameState: GameState): Promise<void> => {
-  if (!sessionId) {
-    console.log("No session ID provided for syncing");
+  if (!sessionId || !supabaseUrl) {
+    console.log("No session ID provided or Supabase not configured");
     return Promise.resolve();
   }
   
@@ -165,9 +246,13 @@ export const syncGameState = async (sessionId: string, gameState: GameState): Pr
   }
 };
 
-// Check if game session exists
 export const checkGameSession = async (sessionId: string): Promise<{ exists: boolean, data: any | null }> => {
   try {
+    // Check if Supabase is properly configured
+    if (!supabaseUrl) {
+      return { exists: false, data: null };
+    }
+    
     const { data, error } = await supabase
       .from('game_sessions')
       .select('*')
@@ -184,4 +269,3 @@ export const checkGameSession = async (sessionId: string): Promise<{ exists: boo
     return { exists: false, data: null };
   }
 };
-
