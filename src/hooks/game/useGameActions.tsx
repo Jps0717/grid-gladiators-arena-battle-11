@@ -1,3 +1,4 @@
+
 import { useCallback, useRef, useState } from "react";
 import { 
   GameState, 
@@ -10,7 +11,9 @@ import {
   isExtraEnergyCell,
   getSurroundingPositions,
   initializeGameState,
-  findWallAtPosition
+  findWallAtPosition,
+  isBaseCell,
+  isAnyJumpZone
 } from "../../utils/gameUtils";
 import { toast } from "@/hooks/use-toast";
 
