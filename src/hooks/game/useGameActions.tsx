@@ -1,5 +1,5 @@
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { 
   GameState, 
   Position, 
@@ -47,6 +47,9 @@ export const useGameActions = ({
   playSound
 }: GameActionsProps) => {
   
+  // Track if the last action was a hit
+  const lastActionWasHit = useRef(false);
+  
   // Check if a player has enough energy for an action
   const hasEnoughEnergy = useCallback((action: ActionType): boolean => {
     const currentEnergy = gameState.currentPlayer === "red" 
@@ -76,6 +79,7 @@ export const useGameActions = ({
     setHighlightedCells([]);
     setAnimatingHit([]);
     setHitUsedCount(0);
+    lastActionWasHit.current = false;
     
     // Add a toast to inform the user about the reset with the randomized starting player
     setTimeout(() => {
@@ -111,6 +115,9 @@ export const useGameActions = ({
     
     // Reset hit used count for the new player's turn
     setHitUsedCount(0);
+    
+    // Reset the lastActionWasHit flag when switching players
+    lastActionWasHit.current = false;
     
     toast({
       title: `${gameState.currentPlayer === "red" ? "Blue" : "Red"}'s Turn`,
@@ -178,6 +185,21 @@ export const useGameActions = ({
           }
         });
         
+        // Determine if we should deduct energy for consecutive hits
+        const shouldDeductEnergy = lastActionWasHit.current;
+        
+        // Set lastActionWasHit to true since we just performed a hit
+        lastActionWasHit.current = true;
+        
+        // Update energy levels if this is the second consecutive hit
+        const updatedRedEnergy = prev.currentPlayer === "red" 
+          ? (shouldDeductEnergy ? Math.max(0, prev.redEnergy - 1) : prev.redEnergy)
+          : prev.redEnergy;
+        
+        const updatedBlueEnergy = prev.currentPlayer === "blue" 
+          ? (shouldDeductEnergy ? Math.max(0, prev.blueEnergy - 1) : prev.blueEnergy) 
+          : prev.blueEnergy;
+        
         // Show appropriate toast based on hit results
         if (hitCount === 0) {
           toast({
@@ -196,6 +218,15 @@ export const useGameActions = ({
           });
         }
         
+        // Show a toast if energy was deducted
+        if (shouldDeductEnergy) {
+          toast({
+            title: "Energy Lost",
+            description: "You lost 1 energy for hitting twice in a row!",
+            variant: "destructive",
+          });
+        }
+        
         // Increment hit used count
         setHitUsedCount(prevCount => prevCount + 1);
         
@@ -203,6 +234,8 @@ export const useGameActions = ({
           ...prev,
           walls: updatedWalls,
           selectedAction: null,  // Clear the selected action after hit
+          redEnergy: updatedRedEnergy,
+          blueEnergy: updatedBlueEnergy,
         };
       });
       
@@ -230,6 +263,8 @@ export const useGameActions = ({
     // Update highlighted cells based on the selected action
     if (action === "move") {
       setHighlightedCells(validMoves.moves || []);
+      // Reset the lastActionWasHit flag when switching to move action
+      lastActionWasHit.current = false;
     } else if (action === "hit") {
       // Check if player has already used hit the maximum number of times
       const currentEnergy = gameState.currentPlayer === "red" 
@@ -245,10 +280,12 @@ export const useGameActions = ({
         return;
       }
       
-      // Immediately trigger the hit action when the hit button is pressed
+      // Immediately trigger the hit action when the button is clicked
       hitAllAdjacentCells();
     } else if (action === "wall") {
       setHighlightedCells(validMoves.wallPlacements || []);
+      // Reset the lastActionWasHit flag when switching to wall action
+      lastActionWasHit.current = false;
     }
   }, [
     validMoves, 
@@ -282,6 +319,9 @@ export const useGameActions = ({
       });
       return;
     }
+    
+    // Reset lastActionWasHit flag when moving
+    lastActionWasHit.current = false;
     
     setGameState((prev) => {
       // Check if player is moving to opponent's position (win condition)
@@ -359,6 +399,9 @@ export const useGameActions = ({
       });
       return;
     }
+    
+    // Reset lastActionWasHit flag when placing a wall
+    lastActionWasHit.current = false;
     
     setGameState((prev) => {
       // Create a new wall
