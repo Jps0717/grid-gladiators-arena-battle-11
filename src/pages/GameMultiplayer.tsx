@@ -166,6 +166,12 @@ const GameMultiplayer = () => {
                 <Copy size={16} />
               </Button>
             </div>
+            
+            <div className="mt-2 bg-red-800/20 p-2 rounded border border-red-500">
+              <p className="text-red-200 text-sm">You are playing as 
+                <span className="font-bold text-red-300"> Red</span>
+              </p>
+            </div>
           </div>
         ) : (
           <>
@@ -185,14 +191,21 @@ const GameMultiplayer = () => {
                 </h1>
               </div>
               
-              <Button 
-                onClick={leaveGame}
-                className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg flex items-center"
-                disabled={gameState.gameOver}
-              >
-                <Flag className="mr-2 h-4 w-4" />
-                Forfeit Game
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className={`px-3 py-1 rounded ${playerColor === "red" ? "bg-red-800/50 border border-red-500" : "bg-blue-800/50 border border-blue-500"}`}>
+                  <p className={`text-sm ${playerColor === "red" ? "text-red-200" : "text-blue-200"}`}>
+                    You: <span className="font-bold">{playerColor === "red" ? "Red" : "Blue"}</span>
+                  </p>
+                </div>
+                <Button 
+                  onClick={leaveGame}
+                  className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg flex items-center"
+                  disabled={gameState.gameOver}
+                >
+                  <Flag className="mr-2 h-4 w-4" />
+                  Forfeit Game
+                </Button>
+              </div>
             </div>
             
             <div className="mb-6">

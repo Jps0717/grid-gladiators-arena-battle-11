@@ -72,8 +72,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const createGame = async (): Promise<string | null> => {
     setIsLoading(true);
     try {
-      // Randomly select red or blue for the host
-      const hostColor: PlayerType = Math.random() < 0.5 ? 'red' : 'blue';
+      // Always set host as red player for consistency
+      const hostColor: PlayerType = 'red';
       const newSessionId = await createGameSession(hostColor);
       
       if (newSessionId) {
@@ -81,7 +81,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setSessionId(newSessionId);
         setPlayerColor(hostColor);
         setIsHost(true);
-        setIsMyTurn(hostColor === 'red'); // Red goes first by default
+        setIsMyTurn(true); // Red always goes first
         setIsConnected(true);
         setOpponentPresent(false);
         
@@ -121,8 +121,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return false;
       }
       
-      // Determine the guest color based on host's color
-      const guestColor: PlayerType = data.current_player === 'red' ? 'blue' : 'red';
+      // Guest is always blue (since host is always red)
+      const guestColor: PlayerType = 'blue';
       
       const success = await joinGameSession(id, guestColor);
       
@@ -130,7 +130,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setSessionId(id);
         setPlayerColor(guestColor);
         setIsHost(false);
-        setIsMyTurn(guestColor === 'red'); // Red goes first by default
+        setIsMyTurn(false); // Red goes first, and guest is blue
         setIsConnected(true);
         setOpponentPresent(true);
         
