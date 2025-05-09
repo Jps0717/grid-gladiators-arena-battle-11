@@ -5,10 +5,12 @@ import {
   subscribeToGameChanges,
   subscribeToSessionStatus,
   syncGameState, 
-  createGameSession, 
+  createGameSession,
   joinGameSession,
   checkGameSession,
   fetchInitialGameState,
+  NewSession,
+  JoinResult
 } from '../utils/supabase';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -240,25 +242,28 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return subscription;
   };
 
-  // Create a new game session
+  // Create a new game session with random color assignment
   const createGame = async (): Promise<string | null> => {
     setIsLoading(true);
     try {
-      const newSessionId = await createGameSession();
+      const result = await createGameSession();
       
-      if (newSessionId) {
-        // Auto-assign as red (host)
+      if (result) {
+        const { id: newSessionId, hostColor } = result;
+        
+        // Set session with the assigned host color
         setSessionId(newSessionId);
-        setPlayerColor('red');
+        setPlayerColor(hostColor);
         setIsHost(true);
         setIsConnected(true);
         setOpponentPresent(false);
         setGameReady(false);
-        setIsMyTurn(true); // Red always goes first
+        // Host's turn is always true if they're assigned "red" (red goes first)
+        setIsMyTurn(hostColor === "red");
         
         localStorage.setItem('gameSessionId', newSessionId);
         localStorage.setItem('isHost', 'true');
-        localStorage.setItem('playerColor', 'red');
+        localStorage.setItem('playerColor', hostColor);
         
         // Set up presence channel
         await setupPresenceChannel(newSessionId, true);
@@ -266,7 +271,6 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Set up status subscription
         setupStatusSubscription(newSessionId);
         
-        // We're going to let the component handle navigation
         return newSessionId;
       }
       return null;
@@ -283,28 +287,14 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
-  // Join an existing game
+  // Join an existing game with opposite color assignment
   const joinGame = async (id: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Check if session exists
-      const { exists, data } = await checkGameSession(id);
+      // Use the updated joinGameSession that returns success + guestColor
+      const { success, guestColor } = await joinGameSession(id);
       
-      if (!exists || !data) {
-        toast({
-          title: "Game not found",
-          description: "The game session ID is invalid",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      if (data.status !== 'waiting') {
-        toast({
-          title: "Cannot join game",
-          description: "This game is already full or has ended",
-          variant: "destructive",
-        });
+      if (!success || !guestColor) {
         return false;
       }
       
@@ -313,10 +303,13 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setIsConnected(true);
       setOpponentPresent(true);
       
-      // Auto-assign as blue (guest)
-      setPlayerColor('blue');
-      localStorage.setItem('playerColor', 'blue');
+      // Set the assigned guest color
+      setPlayerColor(guestColor);
+      // Guest's turn is true if they're assigned "red" (red goes first)
+      setIsMyTurn(guestColor === "red");
+      
       localStorage.setItem('gameSessionId', id);
+      localStorage.setItem('playerColor', guestColor);
       localStorage.setItem('isHost', 'false');
       
       // Set up presence channel
@@ -324,11 +317,6 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       // Set up status subscription
       setupStatusSubscription(id);
-      
-      const success = await joinGameSession(id);
-      if (!success) {
-        return false;
-      }
       
       setGameReady(true);
       

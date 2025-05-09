@@ -1,13 +1,27 @@
-
 import { GameState, Position, PlayerType, PlayerData } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { initializeGameState } from "./gameUtils";
 
-// Create a new game session and return session ID
-export const createGameSession = async (): Promise<string | null> => {
+// Return type for createGameSession
+export type NewSession = {
+  id: string;
+  hostColor: PlayerType;
+};
+
+// Return type for joinGameSession
+export type JoinResult = {
+  success: boolean;
+  guestColor?: PlayerType;
+};
+
+// Create a new game session with random color assignment and return session ID and host color
+export const createGameSession = async (): Promise<NewSession | null> => {
   try {
-    // Initialize with a full game state instead of empty object
+    // Randomly assign host as red or blue
+    const hostColor: PlayerType = Math.random() < 0.5 ? "red" : "blue";
+    
+    // Initialize with a full game state
     const initialGameState = initializeGameState();
     
     const sessionData = {
@@ -17,8 +31,8 @@ export const createGameSession = async (): Promise<string | null> => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       player_colors: {
-        host: "red", // Auto-assign host as red
-        guest: null
+        host: hostColor, // Random assignment
+        guest: null      // Will be assigned when guest joins
       }
     };
 
@@ -31,7 +45,7 @@ export const createGameSession = async (): Promise<string | null> => {
     
     if (data && data[0]) {
       console.log("Created game session:", data[0].id);
-      return data[0].id;
+      return { id: data[0].id, hostColor };
     }
     return null;
   } catch (error) {
@@ -46,12 +60,12 @@ export const createGameSession = async (): Promise<string | null> => {
 };
 
 // Join an existing game session
-export const joinGameSession = async (sessionId: string): Promise<boolean> => {
+export const joinGameSession = async (sessionId: string): Promise<JoinResult> => {
   try {
     // First check if session exists and has available slots
     const { data: sessionData, error: sessionError } = await supabase
       .from('game_sessions')
-      .select('*')
+      .select('status, player_colors')
       .eq('id', sessionId)
       .single();
     
@@ -61,7 +75,7 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
         description: "The game session ID is invalid",
         variant: "destructive",
       });
-      return false;
+      return { success: false };
     }
     
     if (sessionData.status !== 'waiting') {
@@ -70,32 +84,18 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
         description: "This game is already in progress or has ended",
         variant: "destructive",
       });
-      return false;
+      return { success: false };
     }
 
-    // Cast the player_colors to the correct shape to fix TypeScript errors
-    const playerColors = sessionData.player_colors as { host: string | null; guest: string | null } || 
-                        { host: null, guest: null };
+    // Read the host color and assign the opposite to the guest
+    const hostColor = sessionData.player_colors.host as PlayerType;
+    const guestColor: PlayerType = hostColor === "red" ? "blue" : "red";
 
-    // Auto-assign guest as blue
-    const { error: colorError } = await supabase
-      .from('game_sessions')
-      .update({ 
-        player_colors: { 
-          host: playerColors?.host || "red",
-          guest: "blue" 
-        }
-      })
-      .eq('id', sessionId);
-    
-    if (colorError) {
-      console.error("Error assigning color:", colorError);
-    }
-
-    // Update session status to active
+    // Update player colors and set status to active
     const { error: updateError } = await supabase
       .from('game_sessions')
       .update({ 
+        player_colors: { host: hostColor, guest: guestColor },
         status: 'active',
         updated_at: new Date().toISOString()
       })
@@ -103,7 +103,7 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
     
     if (updateError) throw updateError;
     
-    return true;
+    return { success: true, guestColor };
   } catch (error) {
     console.error("Error joining game session:", error);
     toast({
@@ -111,7 +111,7 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
       description: "Please try again later",
       variant: "destructive",
     });
-    return false;
+    return { success: false };
   }
 };
 
