@@ -84,17 +84,18 @@ const GameMultiplayer = () => {
     }
     
     try {
-      // CRITICAL: First fetch the initial game state before setting up subscription
-      const initialGameState = await fetchInitialGameState(sessionId);
-      
-      if (initialGameState) {
-        console.log("Initial game state loaded:", initialGameState);
-        updateGameStateFromDatabase(initialGameState);
-      } else {
-        console.warn("Could not load initial game state");
-        setError("Could not load game data. Please try again.");
-        setIsLoading(false);
-        return;
+      // 🔥 ALWAYS fetch the initial game state first
+      try {
+        const initialGameState = await fetchInitialGameState(sessionId);
+        
+        if (initialGameState) {
+          console.log("Initial game state loaded:", initialGameState);
+          updateGameStateFromDatabase(initialGameState);
+        } else {
+          console.warn("No game data yet—starting from scratch");
+        }
+      } catch (err) {
+        console.error("Failed initial fetch:", err);
       }
       
       // Set up subscription for future changes
@@ -139,21 +140,18 @@ const GameMultiplayer = () => {
     // Initialize connection with initial data fetch FIRST, then subscription
     const initializeConnection = async () => {
       try {
-        // CRITICAL: First fetch the initial game state
-        if (gameReady) {
+        // 🔥 ALWAYS fetch the initial game state first
+        try {
           const initialGameState = await fetchInitialGameState(sessionId);
           
           if (initialGameState) {
             console.log("Initial game state loaded:", initialGameState);
             updateGameStateFromDatabase(initialGameState);
           } else {
-            console.warn("Could not load initial game state");
-            if (opponentPresent && gameReady) {
-              setError("Could not load game data. Please try again.");
-              setIsLoading(false);
-              return;
-            }
+            console.warn("No game data yet—starting from scratch");
           }
+        } catch (err) {
+          console.error("Failed initial fetch:", err);
         }
         
         // Then set up subscription for future changes
