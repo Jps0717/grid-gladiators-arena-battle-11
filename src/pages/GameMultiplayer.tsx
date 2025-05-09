@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import GameBoard from "../components/GameBoard";
@@ -38,7 +37,9 @@ const GameMultiplayer = () => {
     opponentPresent,
     isHost,
     leaveGame,
-    gameReady
+    gameReady,
+    sessionId: contextSessionId,
+    joinExistingGame
   } = useMultiplayer();
   
   const [showStats, setShowStats] = useState(false);
@@ -47,6 +48,17 @@ const GameMultiplayer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
+
+  // Initialize the session if we landed directly on the URL
+  useEffect(() => {
+    if (sessionId && !contextSessionId) {
+      console.log("Directly landed on game page, initializing session:", sessionId);
+      joinExistingGame(sessionId).catch(err => {
+        console.error("Failed to join existing game:", err);
+        setError("Failed to join existing game. Please check your game link.");
+      });
+    }
+  }, [sessionId, contextSessionId, joinExistingGame]);
 
   // Copy session ID to clipboard
   const copySessionId = () => {

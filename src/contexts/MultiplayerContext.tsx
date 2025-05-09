@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GameState, PlayerType } from '../types/gameTypes';
@@ -9,6 +8,7 @@ import {
   createGameSession, 
   joinGameSession,
   checkGameSession,
+  fetchInitialGameState,
 } from '../utils/supabase';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +24,7 @@ interface MultiplayerContextType {
   opponentPresent: boolean;
   createGame: () => Promise<string | null>;
   joinGame: (id: string) => Promise<boolean>;
+  joinExistingGame: (id: string) => Promise<boolean>;
   leaveGame: () => void;
   syncState: (gameState: GameState) => Promise<void>;
   setMyTurn: (isMyTurn: boolean) => void;
@@ -335,6 +336,73 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
+  // New method to join an existing game when landing directly on the URL
+  const joinExistingGame = async (id: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      console.log(`Joining existing game with session ID: ${id}`);
+      
+      // Check if session exists
+      const { exists, data } = await checkGameSession(id);
+      
+      if (!exists || !data) {
+        toast({
+          title: "Game not found",
+          description: "The game session ID is invalid",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      // Set session data
+      setSessionId(id);
+      setIsConnected(true);
+      localStorage.setItem('gameSessionId', id);
+      
+      // Determine if user is host or guest by checking local storage
+      const storedIsHost = localStorage.getItem('isHost') === 'true';
+      const storedPlayerColor = localStorage.getItem('playerColor') as PlayerType | null;
+      
+      if (storedIsHost !== null && storedPlayerColor) {
+        // We have stored data, use it
+        setIsHost(storedIsHost);
+        setPlayerColor(storedPlayerColor);
+        setIsMyTurn(data.current_player === storedPlayerColor);
+      } else {
+        // Default to guest if no stored data
+        setIsHost(false);
+        setPlayerColor('blue');
+        localStorage.setItem('isHost', 'false');
+        localStorage.setItem('playerColor', 'blue');
+        setIsMyTurn(data.current_player === 'blue');
+      }
+      
+      // If game is active, it's ready to play
+      if (data.status === 'active') {
+        setOpponentPresent(true);
+        setGameReady(true);
+      }
+      
+      // Set up presence channel
+      await setupPresenceChannel(id, storedIsHost !== null ? storedIsHost : false);
+      
+      // Set up status subscription
+      setupStatusSubscription(id);
+      
+      return true;
+    } catch (error) {
+      console.error("Error joining existing game:", error);
+      toast({
+        title: "Failed to join game",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Reconnect to existing game session
   const reconnect = async (): Promise<boolean> => {
     if (!sessionId) return false;
@@ -419,6 +487,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     opponentPresent,
     createGame,
     joinGame,
+    joinExistingGame,
     leaveGame: handleLeaveGame,
     syncState,
     setMyTurn: setIsMyTurn,
