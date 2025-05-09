@@ -11,6 +11,7 @@ import HomePage from "./pages/HomePage";
 import Index from "./pages/Index";
 import GameMultiplayer from "./pages/GameMultiplayer";
 import GameLobby from "./pages/GameLobby";
+import RealtimeTest from "./pages/RealtimeTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,8 @@ const App = () => {
               <Route path="/local" element={<Index />} />
               <Route path="/lobby" element={<GameLobby />} />
               <Route path="/game/:sessionId" element={<GameMultiplayer />} />
+              <Route path="/realtimetest" element={<RealtimeTest />} />
+              <Route path="/realtimetest/:sessionId" element={<RealtimeTest />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </MultiplayerProvider>
