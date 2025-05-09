@@ -34,8 +34,6 @@ interface VictoryStatsProps {
   };
   onReturnHome?: () => void;
   autoReturnTimeout?: number;
-  isMultiplayer?: boolean;
-  isWinner?: boolean;
 }
 
 const VictoryStats: React.FC<VictoryStatsProps> = ({
@@ -44,8 +42,6 @@ const VictoryStats: React.FC<VictoryStatsProps> = ({
   stats,
   onReturnHome,
   autoReturnTimeout = 0,
-  isMultiplayer = false,
-  isWinner = false,
 }) => {
   const [countdown, setCountdown] = useState(autoReturnTimeout);
   
@@ -74,16 +70,9 @@ const VictoryStats: React.FC<VictoryStatsProps> = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">
-            {isMultiplayer && isWinner ? (
-              <span className="text-green-600 font-bold">YOU WIN!</span>
-            ) : isMultiplayer && !isWinner ? (
-              <span className="text-red-600 font-bold">YOU LOSE!</span>
-            ) : (
-              <span className={`font-bold ${stats.winner === 'red' ? 'text-game-red' : 'text-game-blue'}`}>
-                {stats.winner?.toUpperCase()}
-              </span>
-            )}
-            {!isMultiplayer && " WINS!"}
+            <span className={`font-bold ${stats.winner === 'red' ? 'text-game-red' : 'text-game-blue'}`}>
+              {stats.winner?.toUpperCase()}
+            </span> WINS!
           </DialogTitle>
           <DialogDescription className="text-center">
             Game Statistics

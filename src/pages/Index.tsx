@@ -5,8 +5,7 @@ import GameControls from "../components/GameControls";
 import VictoryStats from "../components/VictoryStats";
 import { useGameLogic } from "../hooks/game/useGameLogic";
 import { Button } from "@/components/ui/button";
-import { Flag, Plus, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Flag, Plus } from "lucide-react";
 
 const Index = () => {
   const {
@@ -24,15 +23,10 @@ const Index = () => {
   } = useGameLogic();
   
   const [showStats, setShowStats] = useState(false);
-  const navigate = useNavigate();
 
   const handleForfeit = () => {
-    // In local mode, forfeit just resets the game
+    // In single player mode, forfeit just resets the game
     resetGame();
-  };
-  
-  const handleReturnHome = () => {
-    navigate('/');
   };
   
   // Show victory stats when game is over
@@ -42,7 +36,7 @@ const Index = () => {
     }
   }, [gameState.gameOver, gameState.winner]);
   
-  // Calculate simple stats for local mode
+  // Calculate simple stats for single player mode
   const gameStats = {
     winner: gameState.winner || "red",
     roundDuration: 120, // Placeholder
@@ -65,15 +59,7 @@ const Index = () => {
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
       <div className="w-full max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <Button 
-              onClick={handleReturnHome}
-              className="bg-blue-700 hover:bg-blue-800 text-white rounded-lg flex items-center gap-2"
-            >
-              <ArrowLeft size={18} />
-              Return Home
-            </Button>
-            
+          <div className="flex items-center">
             <div 
               className={`w-6 h-6 rounded-full mr-2 ${gameState.currentPlayer === "red" ? "bg-red-600" : "bg-blue-600"}`}
             />
@@ -127,7 +113,7 @@ const Index = () => {
           isOpen={showStats}
           onOpenChange={setShowStats}
           stats={gameStats}
-          onReturnHome={handleReturnHome}
+          onReturnHome={resetGame}
         />
       </div>
     </div>
