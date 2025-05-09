@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -47,6 +46,7 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
         }
         
         if (data) {
+          console.log("Fetched chat messages:", data.length);
           setMessages(data as ChatMessage[]);
         }
       } catch (err) {
@@ -68,12 +68,16 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
           filter: `session_id=eq.${sessionId}` 
         },
         (payload) => {
+          console.log("Chat message received:", payload);
           setMessages(prevMessages => [...prevMessages, payload.new as ChatMessage]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Chat subscription status: ${status}`);
+      });
       
     return () => {
+      console.log("Unsubscribing from chat channel");
       supabase.removeChannel(channel);
     };
   }, [sessionId]);
@@ -97,12 +101,14 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
     
     try {
       // Using direct insert instead of RPC to avoid type issues
-      const { error } = await supabase
+      const result = await supabase
         .from('game_chat_messages')
         .insert([message]);
           
-      if (error) {
-        console.error("Error sending message:", error);
+      console.log("Chat insert result:", result);
+      
+      if (result.error) {
+        console.error("Error sending message:", result.error);
         return;
       }
       

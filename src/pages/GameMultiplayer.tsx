@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import GameBoard from "../components/GameBoard";
@@ -11,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Flag, Copy, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { subscribeToGameChanges, fetchInitialGameState } from "../utils/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const GameMultiplayer = () => {
   const { sessionId } = useParams();

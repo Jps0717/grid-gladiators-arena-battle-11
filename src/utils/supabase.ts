@@ -1,13 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import { GameState, Position, PlayerData, PlayerType } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
-
-// Check for Supabase credentials and use the correct Supabase URL and key
-const supabaseUrl = "https://lbhhhxokopdjmuddlwod.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxiaGhoeG9rb3Bkam11ZGRsd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3MzUzODksImV4cCI6MjA2MjMxMTM4OX0.NgGhV330Aup1dMliGpDIvbGGoxbPNvY6jtrJTNtqcis";
-
-// Create a Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from "@/integrations/supabase/client";
 
 // Create a new game session and return session ID
 export const createGameSession = async (): Promise<string | null> => {
@@ -128,7 +121,7 @@ export const subscribeToGameChanges = (sessionId: string, callback: (gameState: 
         filter: `id=eq.${sessionId}` 
       }, 
       (payload) => {
-        console.log("Game state updated:", payload);
+        console.log("Game state updated payload:", payload);
         if (payload.new && payload.new.game_data) {
           callback(payload.new.game_data as GameState);
         }
@@ -228,7 +221,7 @@ export const syncGameState = async (sessionId: string, gameState: GameState): Pr
   }
 };
 
-// Fetch initial game state with retries - New function to ensure initial data loading
+// Fetch initial game state with retries - Updated to be more robust and consistent with logging
 export const fetchInitialGameState = async (
   sessionId: string, 
   maxRetries = 3
