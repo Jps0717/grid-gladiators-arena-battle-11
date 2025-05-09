@@ -8,7 +8,7 @@ import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
 import { Flag, Copy, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { subscribeToGameChanges, fetchInitialGameState } from "../utils/supabase";
+import { subscribeToGameChanges, fetchInitialGameState, syncGameState } from "../utils/supabase";
 import { supabase } from "@/integrations/supabase/client";
 
 const GameMultiplayer = () => {
@@ -84,13 +84,16 @@ const GameMultiplayer = () => {
     }
     
     try {
-      // 🔥 ALWAYS fetch the initial game state first
+      // First fetch the initial game state
       try {
         const initialGameState = await fetchInitialGameState(sessionId);
         
         if (initialGameState) {
           console.log("Initial game state loaded:", initialGameState);
           updateGameStateFromDatabase(initialGameState);
+          
+          // Ensure the state is synced back to the database
+          await syncGameState(sessionId, initialGameState);
         } else {
           console.warn("No game data yet—starting from scratch");
         }
@@ -140,13 +143,16 @@ const GameMultiplayer = () => {
     // Initialize connection with initial data fetch FIRST, then subscription
     const initializeConnection = async () => {
       try {
-        // 🔥 ALWAYS fetch the initial game state first
+        // ALWAYS fetch the initial game state first
         try {
           const initialGameState = await fetchInitialGameState(sessionId);
           
           if (initialGameState) {
             console.log("Initial game state loaded:", initialGameState);
             updateGameStateFromDatabase(initialGameState);
+            
+            // Ensure the state is properly synced back to the database
+            await syncGameState(sessionId, initialGameState);
           } else {
             console.warn("No game data yet—starting from scratch");
           }

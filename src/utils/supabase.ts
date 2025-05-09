@@ -1,5 +1,4 @@
-
-import { GameState, Position, PlayerData, PlayerType } from "../types/gameTypes";
+import { GameState, Position, PlayerType, PlayerData } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { initializeGameState } from "./gameUtils";
@@ -196,6 +195,7 @@ export const syncGameState = async (sessionId: string, gameState: GameState): Pr
 };
 
 // Fetch initial game state with retries and fallback to a default state
+// Also ensures the full game state is synced back to the database if needed
 export const fetchInitialGameState = async (
   sessionId: string, 
   maxRetries = 3
@@ -221,33 +221,74 @@ export const fetchInitialGameState = async (
           continue;
         } else {
           // On final attempt, return a fresh game state instead of null
-          console.log("Returning fresh game state after max retries");
-          return initializeGameState();
+          const freshState = initializeGameState();
+          
+          // Sync this fresh state back to the database to ensure consistency
+          try {
+            await syncGameState(sessionId, freshState);
+            console.log("Synced fresh game state to database after fetch failures");
+          } catch (syncError) {
+            console.error("Failed to sync fresh game state:", syncError);
+          }
+          
+          return freshState;
         }
       }
       
-      // If we have data but game_data is empty or incomplete, return a fresh state
-      const gameData = data?.game_data as Record<string, any> | null;
+      // If we have data but game_data is empty or incomplete, create and sync a fresh state
+      const gameData = data?.game_data;
       
       if (!gameData || 
+          typeof gameData !== 'object' || 
           Object.keys(gameData).length === 0 || 
           !gameData.walls || 
           !Array.isArray(gameData.walls) || 
           typeof gameData.currentPlayer !== 'string') {
-        console.log("Game data is empty or incomplete, returning fresh state");
-        return initializeGameState();
+        
+        console.log("Game data is empty or incomplete, creating fresh state");
+        const freshState = initializeGameState();
+        
+        // Sync this fresh state back to the database
+        try {
+          await syncGameState(sessionId, freshState);
+          console.log("Synced fresh game state to database for incomplete data");
+        } catch (syncError) {
+          console.error("Failed to sync fresh game state:", syncError);
+        }
+        
+        return freshState;
       }
       
       console.log("Successfully fetched initial game state:", gameData);
       return gameData as GameState;
     } catch (error) {
       console.error("Failed to fetch initial game state:", error);
-      return initializeGameState(); // Return fresh state on error
+      const freshState = initializeGameState();
+      
+      // Try to sync this fresh state back to the database
+      try {
+        await syncGameState(sessionId, freshState);
+        console.log("Synced fresh game state to database after fetch error");
+      } catch (syncError) {
+        console.error("Failed to sync fresh game state:", syncError);
+      }
+      
+      return freshState;
     }
   }
   
   // If all retries failed, return a fresh state
-  return initializeGameState();
+  const freshState = initializeGameState();
+  
+  // Try to sync this fresh state back to the database
+  try {
+    await syncGameState(sessionId, freshState);
+    console.log("Synced fresh game state to database after max retries");
+  } catch (syncError) {
+    console.error("Failed to sync fresh game state after max retries:", syncError);
+  }
+  
+  return freshState;
 };
 
 // Check game session existence
