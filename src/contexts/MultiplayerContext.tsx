@@ -176,7 +176,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const status = await channel.subscribe();
       console.log(`Presence channel subscription status: ${status}`);
       
-      // Compare the status string correctly
+      // Fix: compare the string returned by channel.subscribe() with 'SUBSCRIBED'
       if (status === 'SUBSCRIBED') {
         // Track this player's presence
         const presenceData = {
