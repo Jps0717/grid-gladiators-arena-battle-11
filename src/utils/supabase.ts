@@ -1,3 +1,4 @@
+
 import { GameState, Position, PlayerData, PlayerType } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,12 +69,15 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
       return false;
     }
 
+    // Cast the player_colors to the correct shape
+    const colors = sessionData.player_colors as { host: string | null; guest: string | null };
+
     // Auto-assign guest as blue
     const { error: colorError } = await supabase
       .from('game_sessions')
       .update({ 
         "player_colors": { 
-          host: sessionData.player_colors?.host || "red",
+          host: colors?.host || "red",
           guest: "blue" 
         }
       })
