@@ -240,7 +240,7 @@ export const fetchInitialGameState = async (
       if (data) {
         const raw = data.game_data;
         
-        // 1) Reject null, non-object, or arrays:
+        // 1) Early-exit if it's not an object literal
         if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
           console.warn('game_data invalid—using fresh state');
           const freshState = initializeGameState();
@@ -250,8 +250,8 @@ export const fetchInitialGameState = async (
           return freshState;
         }
         
-        // 2) Now cast it to your GameState shape:
-        const candidate = raw as Partial<GameState>;
+        // 2) Force TS to forget about Json[] vs object with double casting
+        const candidate = (raw as unknown) as Partial<GameState>;
         
         // 3) Validate required fields:
         if (
@@ -288,7 +288,7 @@ export const fetchInitialGameState = async (
           await syncGameState(sessionId, freshState);
           console.log("Synced fresh game state to database after fetch error");
         } catch (syncError) {
-          console.error("Failed to sync fresh game state:", syncError);
+          console.error("Failed to sync fresh game state after max retries:", syncError);
         }
         
         return freshState;
