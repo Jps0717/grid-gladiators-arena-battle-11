@@ -1,3 +1,4 @@
+
 import { GameState, Position, PlayerData, PlayerType } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -195,7 +196,7 @@ export const syncGameState = async (sessionId: string, gameState: GameState): Pr
 export const fetchInitialGameState = async (
   sessionId: string, 
   maxRetries = 3
-): Promise<GameState | null> => {
+): Promise<GameState> => {
   let attempts = 0;
   
   while (attempts < maxRetries) {
@@ -223,18 +224,19 @@ export const fetchInitialGameState = async (
       }
       
       // If we have data but game_data is empty or incomplete, return a fresh state
-      if (!data || 
-          !data.game_data || 
-          Object.keys(data.game_data).length === 0 || 
-          !data.game_data.walls || 
-          !Array.isArray(data.game_data.walls) || 
-          typeof data.game_data.currentPlayer !== 'string') {
+      const gameData = data?.game_data as Record<string, any> | null;
+      
+      if (!gameData || 
+          Object.keys(gameData).length === 0 || 
+          !gameData.walls || 
+          !Array.isArray(gameData.walls) || 
+          typeof gameData.currentPlayer !== 'string') {
         console.log("Game data is empty or incomplete, returning fresh state");
         return initializeGameState();
       }
       
-      console.log("Successfully fetched initial game state:", data.game_data);
-      return data.game_data as GameState;
+      console.log("Successfully fetched initial game state:", gameData);
+      return gameData as GameState;
     } catch (error) {
       console.error("Failed to fetch initial game state:", error);
       return initializeGameState(); // Return fresh state on error
