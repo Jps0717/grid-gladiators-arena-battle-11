@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Users, UserX, Zap } from "lucide-react";
+import { ArrowRight, Users, UserX } from "lucide-react";
 
 const HomePage = () => {
   const { createGame, isLoading, sessionId } = useMultiplayer();
@@ -59,19 +59,6 @@ const HomePage = () => {
               <div className="flex items-center">
                 <Users className="h-5 w-5 mr-3" />
                 <span className="text-lg">Join Online Game</span>
-              </div>
-              <ArrowRight className="ml-2" />
-            </Button>
-          </Link>
-          
-          <Link to="/realtimetest">
-            <Button 
-              variant="outline" 
-              className="w-full py-6 bg-purple-800/50 border-purple-400 hover:bg-purple-700 text-white flex items-center justify-between"
-            >
-              <div className="flex items-center">
-                <Zap className="h-5 w-5 mr-3" />
-                <span className="text-lg">Realtime Test</span>
               </div>
               <ArrowRight className="ml-2" />
             </Button>

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GameState, PlayerType } from '../types/gameTypes';
@@ -177,7 +176,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const status = await channel.subscribe();
       console.log(`Presence channel subscription status: ${status}`);
       
-      // Fix here - compare status to the string 'SUBSCRIBED' instead of comparing the channel itself
+      // Compare the status string correctly
       if (status === 'SUBSCRIBED') {
         // Track this player's presence
         const presenceData = {
