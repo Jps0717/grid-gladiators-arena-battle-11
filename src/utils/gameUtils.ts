@@ -1,206 +1,60 @@
-import { Position, Wall, CellType, GameState, PlayerType } from "../types/gameTypes";
 
-// Initialize game state
-export const initializeGameState = (): GameState => ({
-  currentPlayer: "red",
-  redPosition: { row: 3, col: 2 },
-  bluePosition: { row: 0, col: 2 },
-  walls: [],
-  redEnergy: 2,
-  blueEnergy: 2,
-  redUsedJump: false,
-  blueUsedJump: false,
-  selectedAction: null,
-  gameOver: false,
-  winner: null,
-  lastActionWasWall: false,
-  actionsDisabled: false
+import { Position, PlayerType, GameState, ValidMoves, Wall, CellType } from "../types/gameTypes";
+
+// Format seconds into MM:SS format
+export const formatTime = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+// Get the base cells coordinates
+export const getBaseCells = (): { redBase: Position; blueBase: Position } => ({
+  redBase: { row: 0, col: 0 },
+  blueBase: { row: 3, col: 4 }
 });
+
+// Get the jump zone cells coordinates
+export const getJumpZones = (): { redJumps: Position[]; blueJumps: Position[] } => ({
+  redJumps: [
+    { row: 1, col: 0 },  // Red's first jump cell at (1,0)
+    { row: 0, col: 1 }   // Red's second jump cell at (0,1)
+  ],
+  blueJumps: [
+    { row: 2, col: 4 },  // Blue's first jump cell at (2,4)
+    { row: 3, col: 3 }   // Blue's second jump cell at (3,3)
+  ]
+});
+
+// Get the extra energy cells coordinates
+export const getExtraEnergyCells = (): Position[] => [
+  { row: 0, col: 4 },
+  { row: 3, col: 0 }  // The second extra energy cell at bottom left
+];
+
+// Check if a position is an extra energy cell
+export const isExtraEnergyCell = (pos: Position): boolean => {
+  const extraEnergyCells = getExtraEnergyCells();
+  return extraEnergyCells.some(cell => positionsEqual(cell, pos));
+};
 
 // Check if two positions are equal
 export const positionsEqual = (pos1: Position, pos2: Position): boolean => {
   return pos1.row === pos2.row && pos1.col === pos2.col;
 };
 
-// Get the cell type based on position
-export const getCellClass = (pos: Position, gameState?: GameState): CellType => {
-  // Base cells
-  if (pos.row === 3 && pos.col === 2) return "base-red";
-  if (pos.row === 0 && pos.col === 2) return "base-blue";
-  
-  // Jump cells
-  if (pos.row === 1 && pos.col === 2) return "jump-red";
-  if (pos.row === 2 && pos.col === 2) return "jump-blue";
-  
-  // Energy cells at the corners
-  if ((pos.row === 0 && pos.col === 0) || 
-      (pos.row === 0 && pos.col === 4) || 
-      (pos.row === 3 && pos.col === 0) || 
-      (pos.row === 3 && pos.col === 4)) {
-    return "extra-energy";
-  }
-  
-  return "empty";
+// Check if a position exists in an array of positions
+export const positionInArray = (pos: Position, posArray: Position[]): boolean => {
+  return posArray.some(p => positionsEqual(p, pos));
 };
 
-// Check if a position is a jump cell for the given player
-export const isJumpCell = (pos: Position, player: PlayerType): boolean => {
-  return (player === "red" && pos.row === 1 && pos.col === 2) ||
-         (player === "blue" && pos.row === 2 && pos.col === 2);
+// Check if a position is within the board boundaries
+export const isWithinBoard = (pos: Position): boolean => {
+  return pos.row >= 0 && pos.row <= 3 && pos.col >= 0 && pos.col <= 4;
 };
 
-// Check if a position is an energy cell
-export const isExtraEnergyCell = (pos: Position): boolean => {
-  return (pos.row === 0 && pos.col === 0) || 
-         (pos.row === 0 && pos.col === 4) || 
-         (pos.row === 3 && pos.col === 0) || 
-         (pos.row === 3 && pos.col === 4);
-};
-
-// Check if a move is valid
-export const isValidMove = (
-  currentPos: Position,
-  newPos: Position,
-  opponentPos: Position,
-  walls: Wall[]
-): boolean => {
-  // Check if out of bounds
-  if (newPos.row < 0 || newPos.row > 3 || newPos.col < 0 || newPos.col > 4) {
-    return false;
-  }
-  
-  // Check if position is occupied by opponent
-  if (positionsEqual(newPos, opponentPos)) {
-    return false;
-  }
-  
-  // Check if position contains a wall
-  if (walls.some(wall => positionsEqual(wall.position, newPos) && !wall.broken)) {
-    return false;
-  }
-  
-  // Check if moving only one cell in any direction (manhattan distance = 1)
-  const rowDiff = Math.abs(newPos.row - currentPos.row);
-  const colDiff = Math.abs(newPos.col - currentPos.col);
-  return (rowDiff + colDiff === 1);
-};
-
-// Check if a position is a valid hit target
-export const isValidHitTarget = (
-  currentPos: Position,
-  targetPos: Position,
-  opponentPos: Position,
-  walls: Wall[]
-): boolean => {
-  // Check if out of bounds
-  if (targetPos.row < 0 || targetPos.row > 3 || targetPos.col < 0 || targetPos.col > 4) {
-    return false;
-  }
-  
-  // Check if target is adjacent to current position (manhattan distance = 1)
-  const rowDiff = Math.abs(targetPos.row - currentPos.row);
-  const colDiff = Math.abs(targetPos.col - currentPos.col);
-  if (rowDiff + colDiff !== 1) {
-    return false;
-  }
-  
-  // Target can be either opponent or a wall
-  return positionsEqual(targetPos, opponentPos) || 
-         walls.some(wall => positionsEqual(wall.position, targetPos) && !wall.broken);
-};
-
-// Check if a wall can be placed at the given position
-export const canPlaceWall = (pos: Position, walls: Wall[]): boolean => {
-  // Check if out of bounds
-  if (pos.row < 0 || pos.row > 3 || pos.col < 0 || pos.col > 4) {
-    return false;
-  }
-  
-  // Check if position already has a wall (broken or not)
-  if (walls.some(wall => positionsEqual(wall.position, pos))) {
-    return false;
-  }
-  
-  // Cannot place walls on base cells
-  if ((pos.row === 0 && pos.col === 2) || (pos.row === 3 && pos.col === 2)) {
-    return false;
-  }
-  
-  return true;
-};
-
-// Check if the board has a valid path between bases
-export const boardHasValidPath = (walls: Wall[]): boolean => {
-  // Find all walls that aren't broken
-  const intactWalls = walls.filter(wall => !wall.broken);
-  
-  // Use BFS to find a path from red base to blue base
-  const redBase = { row: 3, col: 2 };
-  const blueBase = { row: 0, col: 2 };
-  
-  // BFS queue
-  const queue = [redBase];
-  // Keep track of visited cells
-  const visited: Record<string, boolean> = {};
-  visited[`${redBase.row},${redBase.col}`] = true;
-  
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    
-    // Check if reached blue base
-    if (positionsEqual(current, blueBase)) {
-      return true;
-    }
-    
-    // Explore in all four directions
-    const directions = [
-      { row: -1, col: 0 }, // up
-      { row: 1, col: 0 },  // down
-      { row: 0, col: -1 }, // left
-      { row: 0, col: 1 }   // right
-    ];
-    
-    for (const dir of directions) {
-      const nextPos = {
-        row: current.row + dir.row,
-        col: current.col + dir.col
-      };
-      
-      // Check if valid cell
-      if (nextPos.row < 0 || nextPos.row > 3 || nextPos.col < 0 || nextPos.col > 4) {
-        continue;
-      }
-      
-      // Check if already visited
-      const key = `${nextPos.row},${nextPos.col}`;
-      if (visited[key]) {
-        continue;
-      }
-      
-      // Check if wall in the way
-      const hasWall = intactWalls.some(wall => positionsEqual(wall.position, nextPos));
-      if (hasWall) {
-        continue;
-      }
-      
-      // Mark as visited and add to queue
-      visited[key] = true;
-      queue.push(nextPos);
-    }
-  }
-  
-  // No path found
-  return false;
-};
-
-// Format time for display (MM:SS)
-export const formatTime = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-};
-
-// Get adjacent positions (up, down, left, right)
+// Get the adjacent positions (orthogonally)
 export const getAdjacentPositions = (pos: Position): Position[] => {
   const directions = [
     { row: -1, col: 0 }, // up
@@ -210,8 +64,11 @@ export const getAdjacentPositions = (pos: Position): Position[] => {
   ];
   
   return directions
-    .map(dir => ({ row: pos.row + dir.row, col: pos.col + dir.col }))
-    .filter(newPos => newPos.row >= 0 && newPos.row <= 3 && newPos.col >= 0 && newPos.col <= 4);
+    .map(dir => ({
+      row: pos.row + dir.row,
+      col: pos.col + dir.col
+    }))
+    .filter(isWithinBoard);
 };
 
 // Get diagonal positions
@@ -224,127 +81,176 @@ export const getDiagonalPositions = (pos: Position): Position[] => {
   ];
   
   return directions
-    .map(dir => ({ row: pos.row + dir.row, col: pos.col + dir.col }))
-    .filter(newPos => newPos.row >= 0 && newPos.row <= 3 && newPos.col >= 0 && newPos.col <= 4);
+    .map(dir => ({
+      row: pos.row + dir.row,
+      col: pos.col + dir.col
+    }))
+    .filter(isWithinBoard);
 };
 
 // Get all surrounding positions (adjacent + diagonal)
 export const getSurroundingPositions = (pos: Position): Position[] => {
-  return [...getAdjacentPositions(pos), ...getDiagonalPositions(pos)];
+  const adjacent = getAdjacentPositions(pos);
+  const diagonal = getDiagonalPositions(pos);
+  
+  return [...adjacent, ...diagonal];
+};
+
+// Get allowed diagonal positions from jump zones (only to other jump zones)
+export const getJumpDiagonalPositions = (pos: Position, player: PlayerType): Position[] => {
+  const { redJumps, blueJumps } = getJumpZones();
+  const playerJumps = player === "red" ? redJumps : blueJumps;
+  
+  // If not on a jump zone, no diagonal jumps are allowed
+  if (!positionInArray(pos, playerJumps)) {
+    return [];
+  }
+  
+  // Get all possible diagonal positions
+  const allDiagonals = getDiagonalPositions(pos);
+  
+  // When on a jump zone, we want to allow jumps to the other jump zone of the same player
+  return allDiagonals.filter(diagPos => 
+    positionInArray(diagPos, playerJumps) && !positionsEqual(diagPos, pos)
+  );
+};
+
+// Check if a position is a jump zone for any player
+export const isAnyJumpZone = (pos: Position): boolean => {
+  const { redJumps, blueJumps } = getJumpZones();
+  return positionInArray(pos, redJumps) || positionInArray(pos, blueJumps);
 };
 
 // Find a wall at a specific position
 export const findWallAtPosition = (walls: Wall[], pos: Position): Wall | undefined => {
-  return walls.find(wall => positionsEqual(wall.position, pos) && !wall.broken);
+  return walls.find(wall => positionsEqual(wall.position, pos));
 };
 
 // Check if a position is a base cell
 export const isBaseCell = (pos: Position): boolean => {
-  return (pos.row === 0 && pos.col === 2) || (pos.row === 3 && pos.col === 2);
+  const { redBase, blueBase } = getBaseCells();
+  return positionsEqual(pos, redBase) || positionsEqual(pos, blueBase);
 };
 
-// Check if a position is any player's jump zone
-export const isAnyJumpZone = (pos: Position): boolean => {
-  return (pos.row === 1 && pos.col === 2) || (pos.row === 2 && pos.col === 2);
-};
-
-// Check if a position is a jump zone for a specific player
-export const isPlayerJumpZone = (pos: Position, player: PlayerType): boolean => {
-  return (player === "red" && pos.row === 1 && pos.col === 2) ||
-         (player === "blue" && pos.row === 2 && pos.col === 2);
-};
-
-// Get valid moves, wall placements, and hit targets
+// Calculate valid moves for a player
 export const getValidMoves = (
-  gameState: GameState,
+  state: GameState,
   playerPosition: Position,
   isJumpZone: boolean,
   usedJump: boolean
-): { moves: Position[], wallPlacements: Position[], hitTargets: Position[] } => {
-  const opponentPosition = gameState.currentPlayer === "red" ? gameState.bluePosition : gameState.redPosition;
+): ValidMoves => {
+  const validMoves: ValidMoves = {
+    moves: [],
+    wallPlacements: [],
+    hitTargets: [],
+  };
   
-  // Calculate valid moves
-  let validMoves = getAdjacentPositions(playerPosition)
-    .filter(pos => {
-      // Check if the position is occupied by opponent
-      if (positionsEqual(pos, opponentPosition)) {
-        return false;
-      }
+  // Calculate valid movement positions
+  const adjacentPositions = getAdjacentPositions(playerPosition);
+  validMoves.moves = adjacentPositions.filter(pos => {
+    // Cannot move to a cell with a wall
+    if (findWallAtPosition(state.walls, pos)) return false;
+    
+    // Can move to opponent's position (to capture)
+    return true;
+  });
+  
+  // Add diagonal moves if on jump zone and haven't used jump this turn
+  if (isJumpZone && !usedJump) {
+    const jumpDiagonalPositions = getJumpDiagonalPositions(playerPosition, state.currentPlayer);
+    const validDiagonalMoves = jumpDiagonalPositions.filter(pos => {
+      // Cannot move to a cell with a wall
+      if (findWallAtPosition(state.walls, pos)) return false;
       
-      // Check if there's a wall
-      if (gameState.walls.some(wall => positionsEqual(wall.position, pos) && !wall.broken)) {
-        return false;
-      }
-      
+      // Can move to opponent's position (to capture)
       return true;
     });
-  
-  // Add diagonal moves if on jump zone and haven't used jump
-  if (isJumpZone && !usedJump) {
-    validMoves = [
-      ...validMoves,
-      ...getDiagonalPositions(playerPosition)
-        .filter(pos => {
-          // Check if the position is occupied by opponent
-          if (positionsEqual(pos, opponentPosition)) {
-            return false;
-          }
-          
-          // Check if there's a wall
-          if (gameState.walls.some(wall => positionsEqual(wall.position, pos) && !wall.broken)) {
-            return false;
-          }
-          
-          return true;
-        })
-    ];
+    
+    validMoves.moves = [...validMoves.moves, ...validDiagonalMoves];
   }
   
-  // Calculate valid wall placements
-  const validWallPlacements = getAdjacentPositions(playerPosition)
-    .filter(pos => {
-      // Check if position already has a wall
-      if (gameState.walls.some(wall => positionsEqual(wall.position, pos))) {
-        return false;
-      }
-      
-      // Cannot place on player positions
-      if (positionsEqual(pos, gameState.redPosition) || positionsEqual(pos, gameState.bluePosition)) {
-        return false;
-      }
-      
-      // Cannot place on base cells
-      if (isBaseCell(pos)) {
-        return false;
-      }
-      
-      // Cannot place on jump zones
-      if (isAnyJumpZone(pos)) {
-        return false;
-      }
-      
-      return true;
-    });
+  // Calculate valid wall placement positions
+  validMoves.wallPlacements = adjacentPositions.filter(pos => {
+    // Cannot place a wall where there is already a wall
+    if (findWallAtPosition(state.walls, pos)) return false;
+    
+    // Cannot place a wall on the opponent's position
+    const opponentPosition = state.currentPlayer === "red" ? state.bluePosition : state.redPosition;
+    if (positionsEqual(pos, opponentPosition)) return false;
+    
+    // Cannot place a wall on your own position
+    if (positionsEqual(pos, playerPosition)) return false;
+    
+    // Cannot place a wall on any base cell
+    if (isBaseCell(pos)) return false;
+    
+    // Cannot place a wall on any jump zone cell (red or blue)
+    if (isAnyJumpZone(pos)) return false;
+    
+    return true;
+  });
   
   // Calculate valid hit targets
-  const validHitTargets = getSurroundingPositions(playerPosition)
-    .filter(pos => {
-      // Can hit opponent
-      if (positionsEqual(pos, opponentPosition)) {
-        return true;
-      }
-      
-      // Can hit walls
-      if (gameState.walls.some(wall => positionsEqual(wall.position, pos) && !wall.broken)) {
-        return true;
-      }
-      
-      return false;
-    });
+  const surroundingPositions = getSurroundingPositions(playerPosition); // Use surrounding (adjacent + diagonal) positions
+  validMoves.hitTargets = surroundingPositions.filter(pos => {
+    // Can only hit walls
+    const wallAtPosition = findWallAtPosition(state.walls, pos);
+    return !!wallAtPosition;
+  });
+  
+  return validMoves;
+};
+
+// Initialize a new game state
+export const initializeGameState = (): GameState => {
+  const { redBase, blueBase } = getBaseCells();
+  
+  // Randomly decide who goes first
+  const randomStartingPlayer: PlayerType = Math.random() > 0.5 ? "red" : "blue";
   
   return {
-    moves: validMoves,
-    wallPlacements: validWallPlacements,
-    hitTargets: validHitTargets
+    currentPlayer: randomStartingPlayer,
+    redPosition: { ...redBase },
+    bluePosition: { ...blueBase },
+    walls: [],
+    redEnergy: 1,
+    blueEnergy: 1,
+    redUsedJump: false,
+    blueUsedJump: false,
+    selectedAction: null,
+    gameOver: false,
+    winner: null,
+    lastActionWasWall: false,
+    actionsDisabled: false,
   };
 };
+
+// Get CSS class for a cell based on its position
+export const getCellClass = (pos: Position, gameState: GameState): CellType => {
+  const { redBase, blueBase } = getBaseCells();
+  const { redJumps, blueJumps } = getJumpZones();
+  
+  // Check if this is a base cell
+  if (positionsEqual(pos, redBase)) return "base-red";
+  if (positionsEqual(pos, blueBase)) return "base-blue";
+  
+  // Check if this is a jump zone, now differentiating between team colors
+  if (positionInArray(pos, redJumps)) return "jump-red";
+  if (positionInArray(pos, blueJumps)) return "jump-blue";
+  
+  // Check if this is an extra energy cell
+  if (isExtraEnergyCell(pos)) return "extra-energy";
+  
+  return "empty";
+};
+
+// Check if a position is a jump zone for the current player
+export const isPlayerJumpZone = (pos: Position, player: PlayerType): boolean => {
+  const { redJumps, blueJumps } = getJumpZones();
+  
+  if (player === "red" && positionInArray(pos, redJumps)) return true;
+  if (player === "blue" && positionInArray(pos, blueJumps)) return true;
+  
+  return false;
+};
+

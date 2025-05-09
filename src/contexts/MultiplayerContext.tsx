@@ -1,20 +1,19 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GameState, PlayerType } from '../types/gameTypes';
 import { 
   subscribeToGameChanges,
   subscribeToSessionStatus,
+  subscribeToPresence, 
   syncGameState, 
-  createGameSession,
+  createGameSession, 
   joinGameSession,
   checkGameSession,
-  fetchInitialGameState,
-  NewSession,
-  JoinResult
+  trackPlayerPresence,
+  getGameSession
 } from '../utils/supabase';
 import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface MultiplayerContextType {
   sessionId: string | null;
@@ -26,12 +25,10 @@ interface MultiplayerContextType {
   opponentPresent: boolean;
   createGame: () => Promise<string | null>;
   joinGame: (id: string) => Promise<boolean>;
-  joinExistingGame: (id: string) => Promise<boolean>;
   leaveGame: () => void;
   syncState: (gameState: GameState) => Promise<void>;
   setMyTurn: (isMyTurn: boolean) => void;
   gameReady: boolean;
-  reconnect: () => Promise<boolean>;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType | undefined>(undefined);
@@ -45,7 +42,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [opponentPresent, setOpponentPresent] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [gameReady, setGameReady] = useState<boolean>(false);
-  const [presenceChannel, setPresenceChannel] = useState<RealtimeChannel | null>(null);
+  const [presenceChannel, setPresenceChannel] = useState<any>(null);
   const [statusSubscription, setStatusSubscription] = useState<any>(null);
   
   const navigate = useNavigate();
@@ -91,110 +88,28 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     
     return () => {
-      cleanupChannels();
+      // Clean up presence channel on unmount
+      if (presenceChannel) {
+        presenceChannel.unsubscribe();
+      }
+      
+      // Clean up status subscription
+      if (statusSubscription) {
+        statusSubscription.unsubscribe();
+      }
     };
   }, []);
   
-  const cleanupChannels = () => {
-    // Clean up presence channel on unmount
-    if (presenceChannel) {
-      supabase.removeChannel(presenceChannel);
-      setPresenceChannel(null);
-    }
-    
-    // Clean up status subscription
-    if (statusSubscription) {
-      statusSubscription.unsubscribe();
-      setStatusSubscription(null);
-    }
-  };
-  
   // Set up presence channel
   const setupPresenceChannel = async (sessionId: string, isHost: boolean) => {
-    try {
-      console.log(`Setting up presence channel for game ${sessionId}`);
-      
-      // First, remove any existing channel
-      if (presenceChannel) {
-        await supabase.removeChannel(presenceChannel);
-      }
-      
-      // Create a new presence channel
-      const channel = supabase.channel(`presence_${sessionId}`);
-      
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          console.log('Presence state updated:', state);
-          
-          // Check for opponent presence
-          const participants = Object.values(state).flat();
-          const opponentFound = participants.some(p => {
-            // Check if this is an opponent's presence data
-            const presenceData = p as any;
-            if (!presenceData || !presenceData.user) return false;
-            
-            return isHost ? presenceData.user === 'guest' : presenceData.user === 'host';
-          });
-          
-          setOpponentPresent(opponentFound);
-        })
-        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-          console.log('Player joined:', key, newPresences);
-          
-          // Check if the joined user is the opponent
-          const joinedPresence = newPresences[0] as any;
-          if (joinedPresence && joinedPresence.user) {
-            const isOpponent = isHost ? joinedPresence.user === 'guest' : joinedPresence.user === 'host';
-            
-            if (isOpponent) {
-              toast({
-                title: "Player joined",
-                description: "Your opponent has joined the game!",
-              });
-            }
-          }
-        })
-        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-          console.log('Player left:', key, leftPresences);
-          
-          // Check if the left user was the opponent
-          const leftPresence = leftPresences[0] as any;
-          if (leftPresence && leftPresence.user) {
-            const wasOpponent = isHost ? leftPresence.user === 'guest' : leftPresence.user === 'host';
-            
-            if (wasOpponent) {
-              toast({
-                title: "Player left",
-                description: "Your opponent has left the game",
-                variant: "destructive",
-              });
-              setOpponentPresent(false);
-            }
-          }
-        });
-      
-      // Subscribe to the channel
-      const status = await channel.subscribe();
-      console.log(`Presence channel subscription status: ${status}`);
-      
-      // Fix: Fix the type comparison by converting the status to string if needed
-      if (typeof status === 'string' && status === 'SUBSCRIBED') {
-        // Track this player's presence
-        const presenceData = {
-          user: isHost ? 'host' : 'guest',
-          online: true,
-          joinedAt: new Date().toISOString()
-        };
-        
-        await channel.track(presenceData);
-        setPresenceChannel(channel);
-      }
-      
-      return channel;
-    } catch (error) {
-      console.error("Error setting up presence channel:", error);
-      return null;
+    const channel = await subscribeToPresence(sessionId);
+    if (channel) {
+      setPresenceChannel(channel);
+      await trackPlayerPresence(channel, {
+        user: isHost ? 'host' : 'guest',
+        online: true,
+        joinedAt: new Date().toISOString()
+      });
     }
   };
   
@@ -206,35 +121,25 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (sessionData.status === 'active' && !gameReady) {
         setOpponentPresent(true);
         setGameReady(true);
-        setIsLoading(false); // Clear loading state when session becomes active
         
         // Get player color from session data
         if (isHost && sessionData.player_colors?.host) {
-          setPlayerColor(sessionData.player_colors.host as PlayerType);
-          setIsMyTurn(sessionData.player_colors.host === sessionData.current_player);
+          setPlayerColor(sessionData.player_colors.host);
+          setIsMyTurn(sessionData.player_colors.host === 'red');
           localStorage.setItem('playerColor', sessionData.player_colors.host);
         } else if (!isHost && sessionData.player_colors?.guest) {
-          setPlayerColor(sessionData.player_colors.guest as PlayerType);
-          setIsMyTurn(sessionData.player_colors.guest === sessionData.current_player);
+          setPlayerColor(sessionData.player_colors.guest);
+          setIsMyTurn(sessionData.player_colors.guest === 'red');
           localStorage.setItem('playerColor', sessionData.player_colors.guest);
         }
         
         // Auto-navigate to game screen
-        if (window.location.pathname.includes('/lobby')) {
-          navigate(`/game/${sessionId}`);
+        if (window.location.pathname.includes('/game/')) {
           toast({
             title: "Game Started",
             description: "Opponent has joined. Game is ready!",
           });
-        } else if (window.location.pathname.includes('/game/')) {
-          toast({
-            title: "Game Ready",
-            description: "Opponent has joined. Game is ready!",
-          });
         }
-      } else if (sessionData.current_player) {
-        // Update turn status based on current player
-        setIsMyTurn(playerColor === sessionData.current_player);
       }
     });
     
@@ -242,28 +147,24 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return subscription;
   };
 
-  // Create a new game session with random color assignment
   const createGame = async (): Promise<string | null> => {
     setIsLoading(true);
     try {
-      const result = await createGameSession();
+      const newSessionId = await createGameSession();
       
-      if (result) {
-        const { id: newSessionId, hostColor } = result;
-        
-        // Set session with the assigned host color
+      if (newSessionId) {
+        // Auto-assign as red (host)
         setSessionId(newSessionId);
-        setPlayerColor(hostColor);
+        setPlayerColor('red');
         setIsHost(true);
         setIsConnected(true);
         setOpponentPresent(false);
         setGameReady(false);
-        // Host's turn is always true if they're assigned "red" (red goes first)
-        setIsMyTurn(hostColor === "red");
+        setIsMyTurn(true); // Red always goes first
         
         localStorage.setItem('gameSessionId', newSessionId);
         localStorage.setItem('isHost', 'true');
-        localStorage.setItem('playerColor', hostColor);
+        localStorage.setItem('playerColor', 'red');
         
         // Set up presence channel
         await setupPresenceChannel(newSessionId, true);
@@ -271,6 +172,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Set up status subscription
         setupStatusSubscription(newSessionId);
         
+        // We're going to let the component handle navigation
         return newSessionId;
       }
       return null;
@@ -287,14 +189,27 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
-  // Join an existing game with opposite color assignment
   const joinGame = async (id: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Use the updated joinGameSession that returns success + guestColor
-      const { success, guestColor } = await joinGameSession(id);
+      // Check if session exists
+      const { exists, data } = await checkGameSession(id);
       
-      if (!success || !guestColor) {
+      if (!exists || !data) {
+        toast({
+          title: "Game not found",
+          description: "The game session ID is invalid",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      if (data.status !== 'waiting') {
+        toast({
+          title: "Cannot join game",
+          description: "This game is already full or has ended",
+          variant: "destructive",
+        });
         return false;
       }
       
@@ -303,13 +218,10 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setIsConnected(true);
       setOpponentPresent(true);
       
-      // Set the assigned guest color
-      setPlayerColor(guestColor);
-      // Guest's turn is true if they're assigned "red" (red goes first)
-      setIsMyTurn(guestColor === "red");
-      
+      // Auto-assign as blue (guest)
+      setPlayerColor('blue');
+      localStorage.setItem('playerColor', 'blue');
       localStorage.setItem('gameSessionId', id);
-      localStorage.setItem('playerColor', guestColor);
       localStorage.setItem('isHost', 'false');
       
       // Set up presence channel
@@ -317,6 +229,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       // Set up status subscription
       setupStatusSubscription(id);
+      
+      const success = await joinGameSession(id);
+      if (!success) {
+        return false;
+      }
       
       setGameReady(true);
       
@@ -336,124 +253,18 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
-  // New method to join an existing game when landing directly on the URL
-  const joinExistingGame = async (id: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      console.log(`Joining existing game with session ID: ${id}`);
-      
-      // Check if session exists
-      const { exists, data } = await checkGameSession(id);
-      
-      if (!exists || !data) {
-        toast({
-          title: "Game not found",
-          description: "The game session ID is invalid",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      // Set session data
-      setSessionId(id);
-      setIsConnected(true);
-      localStorage.setItem('gameSessionId', id);
-      
-      // Determine if user is host or guest by checking local storage
-      const storedIsHost = localStorage.getItem('isHost') === 'true';
-      const storedPlayerColor = localStorage.getItem('playerColor') as PlayerType | null;
-      
-      if (storedIsHost !== null && storedPlayerColor) {
-        // We have stored data, use it
-        setIsHost(storedIsHost);
-        setPlayerColor(storedPlayerColor);
-        setIsMyTurn(data.current_player === storedPlayerColor);
-      } else {
-        // Default to guest if no stored data
-        setIsHost(false);
-        setPlayerColor('blue');
-        localStorage.setItem('isHost', 'false');
-        localStorage.setItem('playerColor', 'blue');
-        setIsMyTurn(data.current_player === 'blue');
-      }
-      
-      // If game is active, it's ready to play
-      if (data.status === 'active') {
-        setOpponentPresent(true);
-        setGameReady(true);
-        setIsLoading(false); // Clear loading state immediately if game is active
-      }
-      
-      // Set up presence channel
-      await setupPresenceChannel(id, storedIsHost !== null ? storedIsHost : false);
-      
-      // Set up status subscription
-      setupStatusSubscription(id);
-      
-      return true;
-    } catch (error) {
-      console.error("Error joining existing game:", error);
-      toast({
-        title: "Failed to join game",
-        description: "Please try again later",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      // Only set isLoading to false if gameReady is still false
-      // Otherwise we'll let the game component handle it based on the session status
-      if (!gameReady) {
-        setIsLoading(false);
-      }
-    }
-  };
-  
-  // Reconnect to existing game session
-  const reconnect = async (): Promise<boolean> => {
-    if (!sessionId) return false;
-    
-    try {
-      // Check if session still exists
-      const { exists, data } = await checkGameSession(sessionId);
-      
-      if (!exists || !data) {
-        handleLeaveGame();
-        toast({
-          title: "Game session expired",
-          description: "The game session is no longer available",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      // Reconnect presence channel
-      await setupPresenceChannel(sessionId, isHost);
-      
-      // Reconnect status subscription
-      if (statusSubscription) {
-        statusSubscription.unsubscribe();
-      }
-      setupStatusSubscription(sessionId);
-      
-      setIsConnected(true);
-      
-      // If game was already active, set it as ready
-      if (data.status === 'active') {
-        setOpponentPresent(true);
-        setGameReady(true);
-        setIsLoading(false);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("Error reconnecting:", error);
-      return false;
-    }
-  };
-  
-  // Leave the game
   const handleLeaveGame = () => {
-    cleanupChannels();
+    // Clean up presence channel
+    if (presenceChannel) {
+      presenceChannel.unsubscribe();
+      setPresenceChannel(null);
+    }
+    
+    // Clean up status subscription
+    if (statusSubscription) {
+      statusSubscription.unsubscribe();
+      setStatusSubscription(null);
+    }
     
     setSessionId(null);
     setPlayerColor(null);
@@ -470,7 +281,6 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     navigate('/');
   };
   
-  // Sync game state to database
   const syncState = async (gameState: GameState): Promise<void> => {
     if (!sessionId) return Promise.resolve();
     
@@ -495,12 +305,10 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     opponentPresent,
     createGame,
     joinGame,
-    joinExistingGame,
     leaveGame: handleLeaveGame,
     syncState,
     setMyTurn: setIsMyTurn,
-    gameReady,
-    reconnect
+    gameReady
   };
 
   return (

@@ -10,7 +10,6 @@ import { setupCleanupCronJob } from "./utils/setupCronJob";
 import HomePage from "./pages/HomePage";
 import Index from "./pages/Index";
 import GameMultiplayer from "./pages/GameMultiplayer";
-import GameLobby from "./pages/GameLobby";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,7 +17,7 @@ const queryClient = new QueryClient();
 const App = () => {
   // Run cleanup job when app loads
   useEffect(() => {
-    // Run cleanup every 4 hours instead of 12
+    // Run cleanup every 12 hours
     const runCleanup = () => {
       console.log("Running scheduled cleanup job");
       setupCleanupCronJob().catch(console.error);
@@ -27,8 +26,8 @@ const App = () => {
     // Run once when app loads
     runCleanup();
     
-    // Set up interval (4 hours)
-    const cleanupInterval = setInterval(runCleanup, 4 * 60 * 60 * 1000);
+    // Set up interval (12 hours)
+    const cleanupInterval = setInterval(runCleanup, 12 * 60 * 60 * 1000);
     
     // Clean up interval on unmount
     return () => clearInterval(cleanupInterval);
@@ -44,7 +43,6 @@ const App = () => {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/local" element={<Index />} />
-              <Route path="/lobby" element={<GameLobby />} />
               <Route path="/game/:sessionId" element={<GameMultiplayer />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

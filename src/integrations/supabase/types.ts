@@ -9,41 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      game_chat_messages: {
-        Row: {
-          created_at: string
-          id: string
-          message: string
-          sender_color: string
-          sender_name: string
-          session_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          sender_color: string
-          sender_name: string
-          session_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          sender_color?: string
-          sender_name?: string
-          session_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "game_chat_messages_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "game_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       game_sessions: {
         Row: {
           created_at: string

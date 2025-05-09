@@ -1,5 +1,4 @@
 
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 
 // Define CORS headers
@@ -31,14 +30,14 @@ Deno.serve(async (req) => {
     // Get current timestamp and calculate cutoff time
     const now = new Date();
     
-    // Clean up waiting sessions older than 10 minutes (reduced from 1 hour)
+    // Clean up waiting sessions older than 2 hours
     const waitingCutoff = new Date(now);
-    waitingCutoff.setMinutes(now.getMinutes() - 10);
+    waitingCutoff.setHours(now.getHours() - 2);
     const waitingCutoffString = waitingCutoff.toISOString();
     
-    // Clean up completed and active sessions older than 12 hours (kept the same)
+    // Clean up completed and active sessions older than 24 hours
     const oldCutoff = new Date(now);
-    oldCutoff.setHours(now.getHours() - 12);
+    oldCutoff.setHours(now.getHours() - 24);
     const oldCutoffString = oldCutoff.toISOString();
 
     // Delete waiting sessions
@@ -64,35 +63,18 @@ Deno.serve(async (req) => {
     if (oldError) {
       throw oldError;
     }
-    
-    // Find inactive game sessions (no updates in 2 hours)
-    const inactiveCutoff = new Date(now);
-    inactiveCutoff.setHours(now.getHours() - 2);
-    const inactiveCutoffString = inactiveCutoff.toISOString();
-    
-    const { data: inactiveData, error: inactiveError } = await supabase
-      .from('game_sessions')
-      .delete()
-      .lt('updated_at', inactiveCutoffString)
-      .eq('status', 'active')
-      .select('id');
-      
-    if (inactiveError) {
-      throw inactiveError;
-    }
 
     // Total deleted count
     const waitingCount = waitingData?.length || 0;
     const oldCount = oldData?.length || 0;
-    const inactiveCount = inactiveData?.length || 0;
-    const totalDeleted = waitingCount + oldCount + inactiveCount;
+    const totalDeleted = waitingCount + oldCount;
 
-    console.log(`Cleanup complete: ${waitingCount} waiting sessions, ${oldCount} old sessions, and ${inactiveCount} inactive sessions removed`);
+    console.log(`Cleanup complete: ${waitingCount} waiting sessions and ${oldCount} old sessions removed`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Cleanup complete: ${waitingCount} waiting sessions, ${oldCount} old sessions, and ${inactiveCount} inactive sessions removed`,
+        message: `Cleanup complete: ${waitingCount} waiting sessions and ${oldCount} old sessions removed`,
         totalDeleted,
       }),
       { 
@@ -115,4 +97,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-

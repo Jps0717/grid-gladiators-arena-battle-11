@@ -1,73 +1,147 @@
 
-import React from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Swords, Users, User, ArrowRight, Trash } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Users, UserX } from "lucide-react";
+import { cleanupStaleSessions } from "../utils/supabase";
+import { toast } from "@/hooks/use-toast";
 
 const HomePage = () => {
-  const { createGame, isLoading, sessionId } = useMultiplayer();
+  const { createGame, joinGame, isLoading } = useMultiplayer();
+  const [gameCode, setGameCode] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
   const navigate = useNavigate();
   
   const handleCreateGame = async () => {
-    const newSessionId = await createGame();
-    if (newSessionId) {
-      navigate(`/game/${newSessionId}`);
+    const sessionId = await createGame();
+    if (sessionId) {
+      navigate(`/game/${sessionId}`);
     }
   };
   
+  const handleJoinGame = async () => {
+    if (!gameCode.trim()) return;
+    await joinGame(gameCode.trim());
+  };
+  
+  const handlePlayLocal = () => {
+    navigate("/local");
+  };
+
+  const handleCleanupStaleSessions = async () => {
+    setIsCleaningUp(true);
+    try {
+      // Clean up waiting sessions older than 2 hours and completed games older than 24 hours
+      const deletedCount = await cleanupStaleSessions({ 
+        maxAgeHours: 2,  // Delete sessions older than 2 hours
+        includeWaiting: true,
+        includeActive: false
+      });
+      
+      toast({
+        title: "Cleanup Complete",
+        description: `${deletedCount} stale game sessions were removed`,
+      });
+    } catch (error) {
+      toast({
+        title: "Cleanup Failed",
+        description: "There was an error cleaning up stale sessions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
-      <div className="max-w-md w-full space-y-8 bg-blue-900/50 p-8 rounded-xl border border-blue-400 shadow-xl">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white">Grid Battle</h1>
-          <p className="text-blue-200 mt-2">A strategic board game of energy and walls</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
+      <div className="max-w-md w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Tactical Grid</h1>
+          <p className="text-blue-200">A strategic board game of movement and walls</p>
         </div>
         
-        <div className="space-y-4">
-          <Link to="/local">
-            <Button 
-              variant="outline" 
-              className="w-full py-6 bg-blue-800/50 border-blue-400 hover:bg-blue-700 text-white flex items-center justify-between"
-            >
-              <div className="flex items-center">
-                <UserX className="h-5 w-5 mr-3" />
-                <span className="text-lg">Play Local Game</span>
+        {isJoining ? (
+          <div className="bg-blue-700/40 p-6 rounded-lg border border-blue-500">
+            <h2 className="text-2xl font-bold text-white mb-4 flex items-center">
+              <Users className="mr-2" />
+              Join a Game
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-blue-200 block mb-1">Game Code</label>
+                <Input
+                  value={gameCode}
+                  onChange={(e) => setGameCode(e.target.value)}
+                  placeholder="Enter game code"
+                  className="bg-blue-900/50 border-blue-500 text-white placeholder:text-blue-300"
+                />
               </div>
-              <ArrowRight className="ml-2" />
-            </Button>
-          </Link>
-          
-          <Button 
-            onClick={handleCreateGame}
-            disabled={isLoading}
-            className="w-full py-6 bg-green-700 hover:bg-green-600 text-white flex items-center justify-between"
-          >
-            <div className="flex items-center">
-              <Users className="h-5 w-5 mr-3" />
-              <span className="text-lg">Create Online Game</span>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsJoining(false)}
+                  variant="outline"
+                  className="flex-1 border-blue-400 text-white"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={handleJoinGame}
+                  disabled={!gameCode.trim() || isLoading}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
+                >
+                  {isLoading ? "Joining..." : "Join Game"}
+                  {!isLoading && <ArrowRight size={16} />}
+                </Button>
+              </div>
             </div>
-            <ArrowRight className="ml-2" />
-          </Button>
-          
-          <Link to="/lobby">
-            <Button 
-              variant="outline" 
-              className="w-full py-6 bg-blue-800/50 border-blue-400 hover:bg-blue-700 text-white flex items-center justify-between"
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Button
+              onClick={handlePlayLocal}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
             >
-              <div className="flex items-center">
-                <Users className="h-5 w-5 mr-3" />
-                <span className="text-lg">Join Online Game</span>
-              </div>
-              <ArrowRight className="ml-2" />
+              <User className="mr-2 h-5 w-5" />
+              <span className="text-lg">Local Mode</span>
             </Button>
-          </Link>
-        </div>
-        
-        <div className="text-blue-300 text-sm text-center pt-4">
-          <p>Made with Supabase Realtime</p>
-        </div>
+            
+            <Button
+              onClick={handleCreateGame}
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
+            >
+              <Swords className="mr-2 h-5 w-5" />
+              <span className="text-lg">
+                {isLoading ? "Creating Game..." : "Create Online Game"}
+              </span>
+            </Button>
+            
+            <Button
+              onClick={() => setIsJoining(true)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
+            >
+              <Users className="mr-2 h-5 w-5" />
+              <span className="text-lg">Join Online Game</span>
+            </Button>
+            
+            <Button
+              onClick={handleCleanupStaleSessions}
+              disabled={isCleaningUp}
+              className="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg flex items-center justify-center h-auto"
+            >
+              <Trash className="mr-2 h-5 w-5" />
+              <span className="text-sm">
+                {isCleaningUp ? "Cleaning up..." : "Clean up old game sessions"}
+              </span>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

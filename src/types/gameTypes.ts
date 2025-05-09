@@ -39,6 +39,7 @@ export type ValidMoves = {
   hitTargets: Position[];
 };
 
+// Define a type for the player data in database that includes the new columns
 export type PlayerData = {
   id: string;
   color: string;

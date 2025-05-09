@@ -32,7 +32,7 @@ const GameControls: React.FC<GameControlsProps> = ({
     ? gameState.redEnergy 
     : gameState.blueEnergy;
     
-  // Only allow ending turn when it's the player's turn and either energy is 0 or actions are disabled
+  // Only allow ending turn when energy is 0 or actions are disabled (after placing a wall)
   const canEndTurn = (currentEnergy === 0 || gameState.actionsDisabled) && isMyTurn;
 
   return (
@@ -77,9 +77,9 @@ const GameControls: React.FC<GameControlsProps> = ({
                 className={cn(
                   "bg-blue-700 hover:bg-blue-800 text-white py-3 px-4 rounded-lg flex items-center justify-center w-full",
                   gameState.selectedAction === "hit" && "ring-2 ring-white",
-                  (!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn || isHitInCooldown) && "opacity-50 cursor-not-allowed"
+                  (!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn) && "opacity-50 cursor-not-allowed"
                 )}
-                disabled={!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn || isHitInCooldown}
+                disabled={!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn}
               >
                 <Target className="mr-2" size={20} />
                 Hit
