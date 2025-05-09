@@ -1,7 +1,7 @@
-
 import { GameState, Position, PlayerData, PlayerType } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { initializeGameState } from "./gameUtils";
 
 // Create a new game session and return session ID
 export const createGameSession = async (): Promise<string | null> => {
@@ -191,7 +191,7 @@ export const syncGameState = async (sessionId: string, gameState: GameState): Pr
   }
 };
 
-// Fetch initial game state with retries
+// Fetch initial game state with retries and fallback to a default state
 export const fetchInitialGameState = async (
   sessionId: string, 
   maxRetries = 3
@@ -216,24 +216,33 @@ export const fetchInitialGameState = async (
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;
         } else {
-          throw error;
+          // On final attempt, return a fresh game state instead of null
+          console.log("Returning fresh game state after max retries");
+          return initializeGameState();
         }
       }
       
-      if (data && data.game_data) {
-        console.log("Successfully fetched initial game state:", data.game_data);
-        return data.game_data as GameState;
-      } else {
-        console.warn("No game data found in session");
-        return null;
+      // If we have data but game_data is empty or incomplete, return a fresh state
+      if (!data || 
+          !data.game_data || 
+          Object.keys(data.game_data).length === 0 || 
+          !data.game_data.walls || 
+          !Array.isArray(data.game_data.walls) || 
+          typeof data.game_data.currentPlayer !== 'string') {
+        console.log("Game data is empty or incomplete, returning fresh state");
+        return initializeGameState();
       }
+      
+      console.log("Successfully fetched initial game state:", data.game_data);
+      return data.game_data as GameState;
     } catch (error) {
       console.error("Failed to fetch initial game state:", error);
-      return null;
+      return initializeGameState(); // Return fresh state on error
     }
   }
   
-  return null;
+  // If all retries failed, return a fresh state
+  return initializeGameState();
 };
 
 // Check game session existence

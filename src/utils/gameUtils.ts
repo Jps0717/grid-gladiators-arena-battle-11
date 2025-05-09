@@ -193,8 +193,6 @@ export const boardHasValidPath = (walls: Wall[]): boolean => {
   return false;
 };
 
-// NEW EXPORTS BELOW - Adding the missing exports to fix the build errors
-
 // Format time for display (MM:SS)
 export const formatTime = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
