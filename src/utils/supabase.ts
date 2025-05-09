@@ -1,3 +1,4 @@
+
 import { GameState, Position, PlayerType, PlayerData } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -235,23 +236,57 @@ export const fetchInitialGameState = async (
         }
       }
       
-      // If we have data but game_data is empty or incomplete, create and sync a fresh state
-      const gameData = data?.game_data;
-      
-      if (!gameData || 
-          typeof gameData !== 'object' || 
-          Object.keys(gameData).length === 0 || 
-          !gameData.walls || 
-          !Array.isArray(gameData.walls) || 
-          typeof gameData.currentPlayer !== 'string') {
+      // If we have data but need to process it
+      if (data) {
+        const raw = data.game_data;
         
-        console.log("Game data is empty or incomplete, creating fresh state");
+        // 1) Reject null, non-object, or arrays:
+        if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+          console.warn('game_data invalid—using fresh state');
+          const freshState = initializeGameState();
+          
+          // Sync back to database
+          await syncGameState(sessionId, freshState);
+          return freshState;
+        }
+        
+        // 2) Now cast it to your GameState shape:
+        const candidate = raw as Partial<GameState>;
+        
+        // 3) Validate required fields:
+        if (
+          typeof candidate.currentPlayer !== 'string' ||
+          !Array.isArray(candidate.walls)
+        ) {
+          console.warn('game_data missing fields—using fresh state');
+          const freshState = initializeGameState();
+          
+          // Sync back to database
+          await syncGameState(sessionId, freshState);
+          return freshState;
+        }
+        
+        // 4) Safe to return:
+        console.log("Successfully fetched initial game state:", candidate);
+        return candidate as GameState;
+      }
+      
+      // If we got here, something went wrong but we didn't get an error
+      console.warn("No data returned but no error either, using fresh state");
+      const freshState = initializeGameState();
+      await syncGameState(sessionId, freshState);
+      return freshState;
+    } catch (error) {
+      console.error("Failed to fetch initial game state:", error);
+      attempts++;
+      
+      if (attempts >= maxRetries) {
         const freshState = initializeGameState();
         
-        // Sync this fresh state back to the database
+        // Try to sync this fresh state back to the database
         try {
           await syncGameState(sessionId, freshState);
-          console.log("Synced fresh game state to database for incomplete data");
+          console.log("Synced fresh game state to database after fetch error");
         } catch (syncError) {
           console.error("Failed to sync fresh game state:", syncError);
         }
@@ -259,21 +294,8 @@ export const fetchInitialGameState = async (
         return freshState;
       }
       
-      console.log("Successfully fetched initial game state:", gameData);
-      return gameData as GameState;
-    } catch (error) {
-      console.error("Failed to fetch initial game state:", error);
-      const freshState = initializeGameState();
-      
-      // Try to sync this fresh state back to the database
-      try {
-        await syncGameState(sessionId, freshState);
-        console.log("Synced fresh game state to database after fetch error");
-      } catch (syncError) {
-        console.error("Failed to sync fresh game state:", syncError);
-      }
-      
-      return freshState;
+      // Short delay before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
   
