@@ -79,7 +79,7 @@ const GameControls: React.FC<GameControlsProps> = ({
                   gameState.selectedAction === "hit" && "ring-2 ring-white",
                   (!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn) && "opacity-50 cursor-not-allowed"
                 )}
-                disabled={!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn}
+                disabled={!hasEnoughEnergy("hit") || gameState.actionsDisabled || !isMyTurn || isHitInCooldown}
               >
                 <Target className="mr-2" size={20} />
                 Hit

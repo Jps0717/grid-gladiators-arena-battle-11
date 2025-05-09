@@ -117,6 +117,11 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
 
 // Subscribe to game changes using Supabase realtime
 export const subscribeToGameChanges = (sessionId: string, callback: (gameState: GameState) => void) => {
+  if (!sessionId) {
+    console.error("No session ID provided for subscription");
+    return null;
+  }
+  
   console.log(`Setting up real-time subscription for game ${sessionId}`);
   
   return supabase
@@ -130,19 +135,21 @@ export const subscribeToGameChanges = (sessionId: string, callback: (gameState: 
         filter: `id=eq.${sessionId}` 
       }, 
       (payload) => {
-        console.log("Game state updated payload:", payload);
         if (payload.new && payload.new.game_data) {
           callback(payload.new.game_data as GameState);
         }
       }
     )
-    .subscribe((status) => {
-      console.log(`Subscription status for game changes: ${status}`);
-    });
+    .subscribe();
 };
 
 // Subscribe to session status changes
 export const subscribeToSessionStatus = (sessionId: string, callback: (data: any) => void) => {
+  if (!sessionId) {
+    console.error("No session ID provided for status subscription");
+    return null;
+  }
+  
   console.log(`Setting up session status subscription for game ${sessionId}`);
   
   return supabase
@@ -156,27 +163,22 @@ export const subscribeToSessionStatus = (sessionId: string, callback: (data: any
         filter: `id=eq.${sessionId}` 
       }, 
       (payload) => {
-        console.log("Session status updated:", payload);
         if (payload.new) {
           callback(payload.new);
         }
       }
     )
-    .subscribe((status) => {
-      console.log(`Subscription status for session changes: ${status}`);
-    });
+    .subscribe();
 };
 
 // Sync game state to the database
 export const syncGameState = async (sessionId: string, gameState: GameState): Promise<void> => {
   if (!sessionId) {
-    console.log("No session ID provided");
+    console.log("No session ID provided for sync");
     return Promise.resolve();
   }
   
   try {
-    console.log(`Syncing game state for session ${sessionId}`, gameState);
-    
     const { error } = await supabase
       .from('game_sessions')
       .update({ 
@@ -205,7 +207,6 @@ export const fetchInitialGameState = async (
   
   while (attempts < maxRetries) {
     try {
-      console.log(`Fetching initial game state for session ${sessionId}, attempt ${attempts + 1}`);
       const { data, error } = await supabase
         .from('game_sessions')
         .select('game_data, current_player, status, player_colors')
@@ -267,7 +268,6 @@ export const fetchInitialGameState = async (
         }
         
         // 4) Safe to return:
-        console.log("Successfully fetched initial game state:", candidate);
         return candidate as GameState;
       }
       
