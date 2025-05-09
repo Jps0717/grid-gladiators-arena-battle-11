@@ -137,65 +137,30 @@ export const subscribeToGameChanges = (sessionId: string, callback: (gameState: 
     });
 };
 
-// Subscribe to presence for real-time player tracking
-export const subscribeToPresence = async (sessionId: string) => {
-  try {
-    console.log(`Setting up presence channel for game ${sessionId}`);
-    
-    const presenceChannel = supabase.channel(`presence_${sessionId}`);
-    
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        console.log('Presence state updated:', state);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('Player joined:', key, newPresences);
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('Player left:', key, leftPresences);
-      });
-      
-    return presenceChannel;
-  } catch (error) {
-    console.error("Error setting up presence:", error);
-    return null;
-  }
-};
-
-// Track player presence in a game session
-export const trackPlayerPresence = async (channel: any, playerData: any) => {
-  if (!channel) return false;
+// Subscribe to session status changes
+export const subscribeToSessionStatus = (sessionId: string, callback: (data: any) => void) => {
+  console.log(`Setting up session status subscription for game ${sessionId}`);
   
-  try {
-    console.log("Tracking player presence:", playerData);
-    const status = await channel.subscribe();
-    if (status === 'SUBSCRIBED') {
-      await channel.track(playerData);
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error("Error tracking presence:", error);
-    return false;
-  }
-};
-
-// Get current game session data
-export const getGameSession = async (sessionId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .single();
-    
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error("Error getting game session:", error);
-    return null;
-  }
+  return supabase
+    .channel(`session_status_${sessionId}`)
+    .on(
+      'postgres_changes', 
+      { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'game_sessions', 
+        filter: `id=eq.${sessionId}` 
+      }, 
+      (payload) => {
+        console.log("Session status updated:", payload);
+        if (payload.new) {
+          callback(payload.new);
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log(`Subscription status for session changes: ${status}`);
+    });
 };
 
 // Sync game state to the database
@@ -226,7 +191,7 @@ export const syncGameState = async (sessionId: string, gameState: GameState): Pr
   }
 };
 
-// Fetch initial game state with retries - Updated to be more robust and consistent with logging
+// Fetch initial game state with retries
 export const fetchInitialGameState = async (
   sessionId: string, 
   maxRetries = 3
@@ -288,102 +253,5 @@ export const checkGameSession = async (sessionId: string): Promise<{ exists: boo
   } catch (error) {
     console.error("Error checking game session:", error);
     return { exists: false, data: null };
-  }
-};
-
-// Subscribe to session status changes
-export const subscribeToSessionStatus = (sessionId: string, callback: (data: any) => void) => {
-  console.log(`Setting up session status subscription for game ${sessionId}`);
-  
-  return supabase
-    .channel(`session_status_${sessionId}`)
-    .on(
-      'postgres_changes', 
-      { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'game_sessions', 
-        filter: `id=eq.${sessionId}` 
-      }, 
-      (payload) => {
-        console.log("Session status updated:", payload);
-        if (payload.new) {
-          callback(payload.new);
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log(`Subscription status for session changes: ${status}`);
-    });
-};
-
-// Delete old game sessions that are no longer active or were created too long ago
-export const cleanupStaleSessions = async (options: { 
-  maxAgeHours?: number,
-  includeActive?: boolean,
-  includeWaiting?: boolean
-} = {}): Promise<number> => {
-  try {
-    // Default options
-    const {
-      maxAgeHours = 24,  // Delete sessions older than 24 hours by default
-      includeActive = false, // By default, don't delete active sessions
-      includeWaiting = true  // By default, clean up waiting sessions
-    } = options;
-    
-    // Calculate the cutoff time
-    const cutoffDate = new Date();
-    cutoffDate.setHours(cutoffDate.getHours() - maxAgeHours);
-    const cutoffISOString = cutoffDate.toISOString();
-    
-    console.log(`Cleaning up sessions older than ${cutoffISOString}`);
-    
-    // Build the status filter based on options
-    let statusFilter = [];
-    if (includeWaiting) statusFilter.push('waiting');
-    if (includeActive) statusFilter.push('active');
-    
-    // If no statuses to filter by, just return 0 (no sessions to delete)
-    if (statusFilter.length === 0) {
-      console.log("No session status types selected for cleanup");
-      return 0;
-    }
-    
-    // First, count how many sessions will be deleted
-    const { count, error: countError } = await supabase
-      .from('game_sessions')
-      .select('*', { count: 'exact', head: true })
-      .lt('created_at', cutoffISOString)
-      .in('status', statusFilter);
-      
-    if (countError) {
-      console.error("Error counting stale sessions:", countError);
-      return 0;
-    }
-    
-    if (!count || count === 0) {
-      console.log("No stale sessions found to delete");
-      return 0;
-    }
-    
-    console.log(`Found ${count} stale sessions to delete`);
-    
-    // Delete the sessions
-    const { error: deleteError } = await supabase
-      .from('game_sessions')
-      .delete()
-      .lt('created_at', cutoffISOString)
-      .in('status', statusFilter);
-      
-    if (deleteError) {
-      console.error("Error deleting stale sessions:", deleteError);
-      return 0;
-    }
-    
-    console.log(`Successfully deleted ${count} stale sessions`);
-    return count || 0;
-  } catch (error) {
-    console.error("Error during session cleanup:", error);
-    return 0;
   }
 };

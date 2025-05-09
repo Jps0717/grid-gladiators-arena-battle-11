@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import GameBoard from "../components/GameBoard";
 import GameControls from "../components/GameControls";
-import GameChat from "../components/GameChat";
 import VictoryStats from "../components/VictoryStats";
 import { useGameLogic } from "../hooks/game/useGameLogic";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
@@ -392,24 +392,16 @@ const GameMultiplayer = () => {
               />
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <GameControls
-                  gameState={gameState}
-                  onSelectAction={isMyTurn ? selectAction : () => {}}
-                  onEndTurn={isMyTurn ? endTurn : () => {}}
-                  onResetGame={resetGame}
-                  onForfeit={leaveGame}
-                  hasEnoughEnergy={hasEnoughEnergy}
-                  isMyTurn={isMyTurn}
-                  isHitInCooldown={isHitInCooldown}
-                />
-              </div>
-              
-              <div className="lg:col-span-1">
-                {sessionId && <GameChat sessionId={sessionId} />}
-              </div>
-            </div>
+            <GameControls
+              gameState={gameState}
+              onSelectAction={isMyTurn ? selectAction : () => {}}
+              onEndTurn={isMyTurn ? endTurn : () => {}}
+              onResetGame={resetGame}
+              onForfeit={leaveGame}
+              hasEnoughEnergy={hasEnoughEnergy}
+              isMyTurn={isMyTurn}
+              isHitInCooldown={isHitInCooldown}
+            />
           </>
         )}
         
