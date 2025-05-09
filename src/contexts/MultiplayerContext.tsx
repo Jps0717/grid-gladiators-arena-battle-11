@@ -204,25 +204,35 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (sessionData.status === 'active' && !gameReady) {
         setOpponentPresent(true);
         setGameReady(true);
+        setIsLoading(false); // Clear loading state when session becomes active
         
         // Get player color from session data
         if (isHost && sessionData.player_colors?.host) {
           setPlayerColor(sessionData.player_colors.host as PlayerType);
-          setIsMyTurn(sessionData.player_colors.host === 'red');
+          setIsMyTurn(sessionData.player_colors.host === sessionData.current_player);
           localStorage.setItem('playerColor', sessionData.player_colors.host);
         } else if (!isHost && sessionData.player_colors?.guest) {
           setPlayerColor(sessionData.player_colors.guest as PlayerType);
-          setIsMyTurn(sessionData.player_colors.guest === 'red');
+          setIsMyTurn(sessionData.player_colors.guest === sessionData.current_player);
           localStorage.setItem('playerColor', sessionData.player_colors.guest);
         }
         
         // Auto-navigate to game screen
-        if (window.location.pathname.includes('/game/')) {
+        if (window.location.pathname.includes('/lobby')) {
+          navigate(`/game/${sessionId}`);
           toast({
             title: "Game Started",
             description: "Opponent has joined. Game is ready!",
           });
+        } else if (window.location.pathname.includes('/game/')) {
+          toast({
+            title: "Game Ready",
+            description: "Opponent has joined. Game is ready!",
+          });
         }
+      } else if (sessionData.current_player) {
+        // Update turn status based on current player
+        setIsMyTurn(playerColor === sessionData.current_player);
       }
     });
     
@@ -230,6 +240,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return subscription;
   };
 
+  // Create a new game session
   const createGame = async (): Promise<string | null> => {
     setIsLoading(true);
     try {
@@ -272,6 +283,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
+  // Join an existing game
   const joinGame = async (id: string): Promise<boolean> => {
     setIsLoading(true);
     try {
@@ -381,6 +393,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (data.status === 'active') {
         setOpponentPresent(true);
         setGameReady(true);
+        setIsLoading(false); // Clear loading state immediately if game is active
       }
       
       // Set up presence channel
@@ -399,7 +412,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       return false;
     } finally {
-      setIsLoading(false);
+      // Only set isLoading to false if gameReady is still false
+      // Otherwise we'll let the game component handle it based on the session status
+      if (!gameReady) {
+        setIsLoading(false);
+      }
     }
   };
   
@@ -436,6 +453,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (data.status === 'active') {
         setOpponentPresent(true);
         setGameReady(true);
+        setIsLoading(false);
       }
       
       return true;
@@ -445,6 +463,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
+  // Leave the game
   const handleLeaveGame = () => {
     cleanupChannels();
     
@@ -463,6 +482,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     navigate('/');
   };
   
+  // Sync game state to database
   const syncState = async (gameState: GameState): Promise<void> => {
     if (!sessionId) return Promise.resolve();
     

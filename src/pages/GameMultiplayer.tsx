@@ -127,12 +127,13 @@ const GameMultiplayer = () => {
     
     // Set initial waiting state
     setWaitingForOpponent(!opponentPresent || !gameReady);
-    setIsLoading(true);
 
     // Do the initial fetch only once
     if (!initialFetchDone) {
       const initializeConnection = async () => {
         try {
+          setIsLoading(true);
+          
           // ALWAYS fetch the initial game state first
           const initialGameState = await fetchInitialGameState(sessionId);
           
@@ -153,8 +154,13 @@ const GameMultiplayer = () => {
           });
 
           setSubscription(newSubscription);
-          setIsLoading(false);
           setInitialFetchDone(true);
+          
+          // Only set loading to false if the game is ready or we're still waiting for an opponent
+          // The MultiplayerContext will update gameReady and opponentPresent when the session becomes active
+          if (gameReady) {
+            setIsLoading(false);
+          }
           
         } catch (err) {
           console.error("Error setting up game:", err);
@@ -174,9 +180,14 @@ const GameMultiplayer = () => {
     };
   }, [sessionId, isConnected, initialFetchDone]);
 
-  // Update waiting state when opponent status changes
+  // Update waiting state when opponent status changes and clear loading state when game is ready
   useEffect(() => {
     setWaitingForOpponent(!opponentPresent || !gameReady);
+    
+    // Clear loading state when game becomes ready
+    if (gameReady) {
+      setIsLoading(false);
+    }
   }, [opponentPresent, gameReady]);
 
   // Sync game state to database when it changes locally - with debouncing
@@ -276,6 +287,73 @@ const GameMultiplayer = () => {
     );
   }
 
+  // If game is not ready yet, show waiting screen
+  if (!gameReady) {
+    return (
+      <div className="min-h-screen flex flex-col items-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
+        <div className="w-full max-w-2xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            {sessionId && (
+              <div className="flex items-center bg-blue-700/50 px-3 py-1 rounded-lg">
+                <span className="text-sm font-mono text-white mr-2">Game Code: {sessionId}</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-white hover:bg-blue-600 p-1 h-6 w-6"
+                  onClick={copySessionId}
+                >
+                  <Copy size={14} />
+                </Button>
+              </div>
+            )}
+            
+            <div>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={leaveGame}
+              >
+                <Flag className="mr-1 h-3.5 w-3.5" />
+                Leave Game
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-blue-900/50 p-8 rounded-lg border border-blue-400 flex flex-col items-center gap-4">
+            <Users size={48} className="text-blue-200 animate-pulse" />
+            <h2 className="text-2xl font-bold text-white">Waiting for Opponent</h2>
+            <p className="text-blue-200 text-center">
+              Share your game code with a friend to join!
+            </p>
+            
+            <div className="bg-blue-800/50 p-3 rounded-lg border border-blue-400 flex items-center justify-center mt-2">
+              <span className="text-xl font-mono text-white tracking-wider">{sessionId}</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="ml-2 text-white hover:bg-blue-600"
+                onClick={copySessionId}
+              >
+                <Copy size={16} />
+              </Button>
+            </div>
+            
+            <div className="text-center mt-4">
+              <p className="text-blue-200 mb-2">You will play as:</p>
+              <div className="flex items-center justify-center">
+                <div className={`w-8 h-8 rounded-full ${isHost ? "bg-red-600" : "bg-blue-600"} mr-2`}></div>
+                <span className="font-bold text-white text-lg">
+                  {isHost ? "Red" : "Blue"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
       <div className="w-full max-w-2xl mx-auto">
@@ -307,89 +385,53 @@ const GameMultiplayer = () => {
             </Button>
           </div>
         </div>
-
-        {/* Waiting for opponent screen */}
-        {waitingForOpponent ? (
-          <div className="bg-blue-900/50 p-8 rounded-lg border border-blue-400 flex flex-col items-center gap-4">
-            <Users size={48} className="text-blue-200 animate-pulse" />
-            <h2 className="text-2xl font-bold text-white">Waiting for Opponent</h2>
-            <p className="text-blue-200 text-center">
-              Share your game code with a friend to join!
-            </p>
-            
-            <div className="bg-blue-800/50 p-3 rounded-lg border border-blue-400 flex items-center justify-center mt-2">
-              <span className="text-xl font-mono text-white tracking-wider">{sessionId}</span>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="ml-2 text-white hover:bg-blue-600"
-                onClick={copySessionId}
-              >
-                <Copy size={16} />
-              </Button>
-            </div>
-            
-            <div className="text-center mt-4">
-              <p className="text-blue-200 mb-2">You will play as:</p>
-              <div className="flex items-center justify-center">
-                <div className={`w-8 h-8 rounded-full ${isHost ? "bg-red-600" : "bg-blue-600"} mr-2`}></div>
-                <span className="font-bold text-white text-lg">
-                  {isHost ? "Red" : "Blue"}
-                </span>
-              </div>
+        
+        {/* Game status bar */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center">
+            <div 
+              className={`w-6 h-6 rounded-full mr-2 ${gameState.currentPlayer === "red" ? "bg-red-600" : "bg-blue-600"}`}
+            />
+            <h1 className="text-white text-2xl font-bold flex items-center">
+              {gameState.currentPlayer === "red" ? "Red" : "Blue"}'s Turn
+              {isMyTurn ? (
+                <span className="ml-2 text-sm bg-blue-600 px-2 py-0.5 rounded-full">You</span>
+              ) : (
+                <span className="ml-2 text-sm bg-gray-600 px-2 py-0.5 rounded-full">Opponent</span>
+              )}
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <div className={`px-3 py-1 rounded ${playerColor === "red" ? "bg-red-800/50 border border-red-500" : "bg-blue-800/50 border border-blue-500"}`}>
+              <p className={`text-sm ${playerColor === "red" ? "text-red-200" : "text-blue-200"}`}>
+                You: <span className="font-bold">{playerColor === "red" ? "Red" : "Blue"}</span>
+              </p>
             </div>
           </div>
-        ) : (
-          /* Game Screen */
-          <>
-            {/* Game status bar */}
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center">
-                <div 
-                  className={`w-6 h-6 rounded-full mr-2 ${gameState.currentPlayer === "red" ? "bg-red-600" : "bg-blue-600"}`}
-                />
-                <h1 className="text-white text-2xl font-bold flex items-center">
-                  {gameState.currentPlayer === "red" ? "Red" : "Blue"}'s Turn
-                  {isMyTurn ? (
-                    <span className="ml-2 text-sm bg-blue-600 px-2 py-0.5 rounded-full">You</span>
-                  ) : (
-                    <span className="ml-2 text-sm bg-gray-600 px-2 py-0.5 rounded-full">Opponent</span>
-                  )}
-                </h1>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <div className={`px-3 py-1 rounded ${playerColor === "red" ? "bg-red-800/50 border border-red-500" : "bg-blue-800/50 border border-blue-500"}`}>
-                  <p className={`text-sm ${playerColor === "red" ? "text-red-200" : "text-blue-200"}`}>
-                    You: <span className="font-bold">{playerColor === "red" ? "Red" : "Blue"}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <GameBoard
-                gameState={gameState}
-                highlightedCells={highlightedCells}
-                animatingHit={animatingHit}
-                invalidWallCells={invalidWallCells}
-                energyGainPosition={energyGainPosition}
-                onCellClick={handleBoardCellClick}
-              />
-            </div>
-            
-            <GameControls
-              gameState={gameState}
-              onSelectAction={selectAction}
-              onEndTurn={endTurn}
-              onResetGame={resetGame}
-              onForfeit={leaveGame}
-              hasEnoughEnergy={hasEnoughEnergy}
-              isMyTurn={isMyTurn}
-              isHitInCooldown={isHitInCooldown}
-            />
-          </>
-        )}
+        </div>
+        
+        <div className="mb-6">
+          <GameBoard
+            gameState={gameState}
+            highlightedCells={highlightedCells}
+            animatingHit={animatingHit}
+            invalidWallCells={invalidWallCells}
+            energyGainPosition={energyGainPosition}
+            onCellClick={handleBoardCellClick}
+          />
+        </div>
+        
+        <GameControls
+          gameState={gameState}
+          onSelectAction={selectAction}
+          onEndTurn={endTurn}
+          onResetGame={resetGame}
+          onForfeit={leaveGame}
+          hasEnoughEnergy={hasEnoughEnergy}
+          isMyTurn={isMyTurn}
+          isHitInCooldown={isHitInCooldown}
+        />
         
         <VictoryStats 
           isOpen={showStats}
