@@ -10,6 +10,7 @@ import { setupCleanupCronJob } from "./utils/setupCronJob";
 import HomePage from "./pages/HomePage";
 import Index from "./pages/Index";
 import GameMultiplayer from "./pages/GameMultiplayer";
+import GameLobby from "./pages/GameLobby";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/local" element={<Index />} />
+              <Route path="/lobby" element={<GameLobby />} />
               <Route path="/game/:sessionId" element={<GameMultiplayer />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -29,6 +29,7 @@ interface MultiplayerContextType {
   syncState: (gameState: GameState) => Promise<void>;
   setMyTurn: (isMyTurn: boolean) => void;
   gameReady: boolean;
+  reconnect: () => Promise<boolean>;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType | undefined>(undefined);
@@ -253,6 +254,51 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
   
+  // Reconnect to existing game session
+  const reconnect = async (): Promise<boolean> => {
+    if (!sessionId) return false;
+    
+    try {
+      // Check if session still exists
+      const { exists, data } = await checkGameSession(sessionId);
+      
+      if (!exists || !data) {
+        handleLeaveGame();
+        toast({
+          title: "Game session expired",
+          description: "The game session is no longer available",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      // Reconnect presence channel
+      if (presenceChannel) {
+        presenceChannel.unsubscribe();
+      }
+      await setupPresenceChannel(sessionId, isHost);
+      
+      // Reconnect status subscription
+      if (statusSubscription) {
+        statusSubscription.unsubscribe();
+      }
+      setupStatusSubscription(sessionId);
+      
+      setIsConnected(true);
+      
+      // If game was already active, set it as ready
+      if (data.status === 'active') {
+        setOpponentPresent(true);
+        setGameReady(true);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error reconnecting:", error);
+      return false;
+    }
+  };
+  
   const handleLeaveGame = () => {
     // Clean up presence channel
     if (presenceChannel) {
@@ -308,7 +354,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     leaveGame: handleLeaveGame,
     syncState,
     setMyTurn: setIsMyTurn,
-    gameReady
+    gameReady,
+    reconnect
   };
 
   return (

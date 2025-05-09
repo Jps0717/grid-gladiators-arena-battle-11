@@ -1,109 +1,34 @@
 
-import React, { useState } from "react";
-import { useMultiplayer } from "../contexts/MultiplayerContext";
+import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Swords, Users, User, ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
 
 const HomePage = () => {
-  const { createGame, joinGame, isLoading } = useMultiplayer();
-  const [gameCode, setGameCode] = useState("");
-  const [isJoining, setIsJoining] = useState(false);
-  const navigate = useNavigate();
-  
-  const handleCreateGame = async () => {
-    const sessionId = await createGame();
-    if (sessionId) {
-      navigate(`/game/${sessionId}`);
-    }
-  };
-  
-  const handleJoinGame = async () => {
-    if (!gameCode.trim()) return;
-    await joinGame(gameCode.trim());
-  };
-  
-  const handlePlayLocal = () => {
-    navigate("/local");
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Tactical Grid</h1>
-          <p className="text-blue-200">A strategic board game of movement and walls</p>
+      <div className="text-center max-w-lg">
+        <h1 className="text-5xl font-bold text-white mb-6">Grid Combat</h1>
+        <p className="text-blue-200 mb-12 text-lg">
+          A strategic two-player grid-based game of movement and capture
+        </p>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <Link to="/lobby">
+            <Button size="lg" className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6">
+              Play Online
+            </Button>
+          </Link>
+          
+          <Link to="/local">
+            <Button size="lg" variant="outline" className="w-full border-blue-400 text-blue-100 hover:bg-blue-700/50 text-lg py-6">
+              Play Local
+            </Button>
+          </Link>
         </div>
         
-        {isJoining ? (
-          <div className="bg-blue-700/40 p-6 rounded-lg border border-blue-500">
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center">
-              <Users className="mr-2" />
-              Join a Game
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-blue-200 block mb-1">Game Code</label>
-                <Input
-                  value={gameCode}
-                  onChange={(e) => setGameCode(e.target.value)}
-                  placeholder="Enter game code"
-                  className="bg-blue-900/50 border-blue-500 text-white placeholder:text-blue-300"
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setIsJoining(false)}
-                  variant="outline"
-                  className="flex-1 border-blue-400 text-white"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handleJoinGame}
-                  disabled={!gameCode.trim() || isLoading}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
-                >
-                  {isLoading ? "Joining..." : "Join Game"}
-                  {!isLoading && <ArrowRight size={16} />}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <Button
-              onClick={handlePlayLocal}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
-            >
-              <User className="mr-2 h-5 w-5" />
-              <span className="text-lg">Local Mode</span>
-            </Button>
-            
-            <Button
-              onClick={handleCreateGame}
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
-            >
-              <Swords className="mr-2 h-5 w-5" />
-              <span className="text-lg">
-                {isLoading ? "Creating Game..." : "Create Online Game"}
-              </span>
-            </Button>
-            
-            <Button
-              onClick={() => setIsJoining(true)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg flex items-center justify-center h-auto"
-            >
-              <Users className="mr-2 h-5 w-5" />
-              <span className="text-lg">Join Online Game</span>
-            </Button>
-          </div>
-        )}
+        <p className="text-blue-300 text-sm">
+          Play against friends online or challenge yourself in local mode
+        </p>
       </div>
     </div>
   );

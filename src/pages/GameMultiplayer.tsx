@@ -1,13 +1,14 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import GameBoard from "../components/GameBoard";
 import GameControls from "../components/GameControls";
+import GameChat from "../components/GameChat";
 import VictoryStats from "../components/VictoryStats";
 import { useGameLogic } from "../hooks/game/useGameLogic";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
-import { Flag, Copy, Users, AlertTriangle } from "lucide-react";
+import { Flag, Copy, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { subscribeToGameChanges } from "../utils/supabase";
 
@@ -45,6 +46,7 @@ const GameMultiplayer = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
 
   // Copy session ID to clipboard
   const copySessionId = () => {
@@ -56,6 +58,53 @@ const GameMultiplayer = () => {
       });
     }
   };
+
+  // Retry connection
+  const handleRetryConnection = useCallback(() => {
+    if (!sessionId) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    // Clean up previous subscription
+    if (subscription) {
+      subscription.unsubscribe();
+    }
+    
+    // Re-subscribe to game changes
+    try {
+      const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
+        const now = Date.now();
+        // Only process updates that are at least 200ms apart to prevent rapid flickering
+        if (now - lastUpdateTime > 200) {
+          setLastUpdateTime(now);
+          
+          if (updatedGameState) {
+            updateGameStateFromDatabase(updatedGameState);
+            setIsLoading(false);
+          } else {
+            console.warn("Received null or undefined game state from database");
+            setIsLoading(false);
+          }
+        }
+      });
+
+      setSubscription(newSubscription);
+      
+      // Initial sync (get latest game state)
+      syncWithDatabase(sessionId)
+        .then(() => setIsLoading(false))
+        .catch(error => {
+          console.error("Error syncing game state:", error);
+          setError("Failed to load game data. Please try again.");
+          setIsLoading(false);
+        });
+    } catch (err) {
+      console.error("Error setting up game:", err);
+      setError("Failed to connect to game. Please try again.");
+      setIsLoading(false);
+    }
+  }, [sessionId, subscription, lastUpdateTime, updateGameStateFromDatabase, syncWithDatabase]);
 
   // Initialize game session connection
   useEffect(() => {
@@ -72,15 +121,20 @@ const GameMultiplayer = () => {
     setIsLoading(true);
 
     try {
-      // Subscribe to game state changes
+      // Subscribe to game state changes with rate-limiting
       const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
-        console.log("Game state updated from database:", updatedGameState);
-        if (updatedGameState) {
-          updateGameStateFromDatabase(updatedGameState);
-          setIsLoading(false);
-        } else {
-          console.warn("Received null or undefined game state from database");
-          setIsLoading(false);
+        const now = Date.now();
+        // Only process updates that are at least 200ms apart to prevent rapid flickering
+        if (now - lastUpdateTime > 200) {
+          setLastUpdateTime(now);
+          
+          if (updatedGameState) {
+            updateGameStateFromDatabase(updatedGameState);
+            setIsLoading(false);
+          } else {
+            console.warn("Received null or undefined game state from database");
+            setIsLoading(false);
+          }
         }
       });
 
@@ -95,6 +149,8 @@ const GameMultiplayer = () => {
             setError("Failed to load game data. Please try again.");
             setIsLoading(false);
           });
+      } else {
+        setIsLoading(false);
       }
     } catch (err) {
       console.error("Error setting up game:", err);
@@ -124,19 +180,23 @@ const GameMultiplayer = () => {
     }
   }, [opponentPresent, gameReady, sessionId]);
 
-  // Sync game state to database when it changes locally
+  // Sync game state to database when it changes locally - with debouncing
   useEffect(() => {
     if (sessionId && isMyTurn && gameReady && !isLoading) {
-      syncWithDatabase(sessionId).catch(err => {
-        console.error("Error syncing game state:", err);
-        toast({
-          title: "Sync Error",
-          description: "Failed to update game state. Game may be out of sync.",
-          variant: "destructive",
+      const debounceTimeout = setTimeout(() => {
+        syncWithDatabase(sessionId).catch(err => {
+          console.error("Error syncing game state:", err);
+          toast({
+            title: "Sync Error",
+            description: "Failed to update game state. Game may be out of sync.",
+            variant: "destructive",
+          });
         });
-      });
+      }, 100); // Small delay to batch rapid changes
+      
+      return () => clearTimeout(debounceTimeout);
     }
-  }, [gameState, isMyTurn, sessionId, gameReady, isLoading]);
+  }, [gameState, isMyTurn, sessionId, gameReady, isLoading, syncWithDatabase]);
 
   // Show victory stats when game is over
   useEffect(() => {
@@ -176,12 +236,24 @@ const GameMultiplayer = () => {
             <AlertTriangle size={48} className="text-yellow-300" />
             <h2 className="text-2xl font-bold text-white">Connection Error</h2>
             <p className="text-blue-200 mb-4">{error}</p>
-            <Button 
-              onClick={() => navigate("/")}
-              className="bg-blue-700 hover:bg-blue-800 w-full"
-            >
-              Return Home
-            </Button>
+            <div className="flex flex-col w-full gap-2">
+              <Button 
+                onClick={handleRetryConnection}
+                className="bg-blue-700 hover:bg-blue-800 w-full flex items-center justify-center"
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Retry Connection
+              </Button>
+              <Button 
+                onClick={() => navigate("/")}
+                variant="outline"
+                className="border-blue-400 text-blue-100 hover:bg-blue-700/50 w-full"
+              >
+                Return Home
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -191,8 +263,10 @@ const GameMultiplayer = () => {
   // Loading indicator
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-800 to-blue-900">
-        <div className="text-white text-xl font-bold animate-pulse">Loading game...</div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-800 to-blue-900 p-4">
+        <Loader2 className="h-12 w-12 text-white animate-spin mb-4" />
+        <div className="text-white text-xl font-bold">Loading game...</div>
+        <p className="text-blue-200 mt-2">Establishing connection...</p>
       </div>
     );
   }
@@ -299,16 +373,24 @@ const GameMultiplayer = () => {
               />
             </div>
             
-            <GameControls
-              gameState={gameState}
-              onSelectAction={isMyTurn ? selectAction : () => {}}
-              onEndTurn={isMyTurn ? endTurn : () => {}}
-              onResetGame={resetGame}
-              onForfeit={leaveGame}
-              hasEnoughEnergy={hasEnoughEnergy}
-              isMyTurn={isMyTurn}
-              isHitInCooldown={isHitInCooldown}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2">
+                <GameControls
+                  gameState={gameState}
+                  onSelectAction={isMyTurn ? selectAction : () => {}}
+                  onEndTurn={isMyTurn ? endTurn : () => {}}
+                  onResetGame={resetGame}
+                  onForfeit={leaveGame}
+                  hasEnoughEnergy={hasEnoughEnergy}
+                  isMyTurn={isMyTurn}
+                  isHitInCooldown={isHitInCooldown}
+                />
+              </div>
+              
+              <div className="lg:col-span-1">
+                {sessionId && <GameChat sessionId={sessionId} />}
+              </div>
+            </div>
           </>
         )}
         
