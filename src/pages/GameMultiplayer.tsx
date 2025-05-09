@@ -10,7 +10,7 @@ import { useMultiplayer } from "../contexts/MultiplayerContext";
 import { Button } from "@/components/ui/button";
 import { Flag, Copy, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { subscribeToGameChanges } from "../utils/supabase";
+import { subscribeToGameChanges, fetchInitialGameState } from "../utils/supabase";
 
 const GameMultiplayer = () => {
   const { sessionId } = useParams();
@@ -60,7 +60,7 @@ const GameMultiplayer = () => {
   };
 
   // Retry connection
-  const handleRetryConnection = useCallback(() => {
+  const handleRetryConnection = useCallback(async () => {
     if (!sessionId) return;
     
     setIsLoading(true);
@@ -71,8 +71,21 @@ const GameMultiplayer = () => {
       subscription.unsubscribe();
     }
     
-    // Re-subscribe to game changes
     try {
+      // CRITICAL: First fetch the initial game state before setting up subscription
+      const initialGameState = await fetchInitialGameState(sessionId);
+      
+      if (initialGameState) {
+        console.log("Initial game state loaded:", initialGameState);
+        updateGameStateFromDatabase(initialGameState);
+      } else {
+        console.warn("Could not load initial game state");
+        setError("Could not load game data. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Set up subscription for future changes
       const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
         const now = Date.now();
         // Only process updates that are at least 200ms apart to prevent rapid flickering
@@ -81,30 +94,21 @@ const GameMultiplayer = () => {
           
           if (updatedGameState) {
             updateGameStateFromDatabase(updatedGameState);
-            setIsLoading(false);
           } else {
             console.warn("Received null or undefined game state from database");
-            setIsLoading(false);
           }
         }
       });
 
       setSubscription(newSubscription);
+      setIsLoading(false);
       
-      // Initial sync (get latest game state)
-      syncWithDatabase(sessionId)
-        .then(() => setIsLoading(false))
-        .catch(error => {
-          console.error("Error syncing game state:", error);
-          setError("Failed to load game data. Please try again.");
-          setIsLoading(false);
-        });
     } catch (err) {
       console.error("Error setting up game:", err);
       setError("Failed to connect to game. Please try again.");
       setIsLoading(false);
     }
-  }, [sessionId, subscription, lastUpdateTime, updateGameStateFromDatabase, syncWithDatabase]);
+  }, [sessionId, subscription, lastUpdateTime, updateGameStateFromDatabase]);
 
   // Initialize game session connection
   useEffect(() => {
@@ -120,43 +124,51 @@ const GameMultiplayer = () => {
     setWaitingForOpponent(!opponentPresent || !gameReady);
     setIsLoading(true);
 
-    try {
-      // Subscribe to game state changes with rate-limiting
-      const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
-        const now = Date.now();
-        // Only process updates that are at least 200ms apart to prevent rapid flickering
-        if (now - lastUpdateTime > 200) {
-          setLastUpdateTime(now);
+    // Initialize connection with initial data fetch FIRST, then subscription
+    const initializeConnection = async () => {
+      try {
+        // CRITICAL: First fetch the initial game state
+        if (gameReady) {
+          const initialGameState = await fetchInitialGameState(sessionId);
           
-          if (updatedGameState) {
-            updateGameStateFromDatabase(updatedGameState);
-            setIsLoading(false);
+          if (initialGameState) {
+            console.log("Initial game state loaded:", initialGameState);
+            updateGameStateFromDatabase(initialGameState);
           } else {
-            console.warn("Received null or undefined game state from database");
-            setIsLoading(false);
+            console.warn("Could not load initial game state");
+            if (opponentPresent && gameReady) {
+              setError("Could not load game data. Please try again.");
+              setIsLoading(false);
+              return;
+            }
           }
         }
-      });
+        
+        // Then set up subscription for future changes
+        const newSubscription = subscribeToGameChanges(sessionId, (updatedGameState) => {
+          const now = Date.now();
+          if (now - lastUpdateTime > 200) {
+            setLastUpdateTime(now);
+            
+            if (updatedGameState) {
+              updateGameStateFromDatabase(updatedGameState);
+            } else {
+              console.warn("Received null or undefined game state from database");
+            }
+          }
+        });
 
-      setSubscription(newSubscription);
-
-      // Initial sync (get latest game state)
-      if (gameReady) {
-        syncWithDatabase(sessionId)
-          .then(() => setIsLoading(false))
-          .catch(error => {
-            console.error("Error syncing game state:", error);
-            setError("Failed to load game data. Please try again.");
-            setIsLoading(false);
-          });
-      } else {
+        setSubscription(newSubscription);
+        setIsLoading(false);
+        
+      } catch (err) {
+        console.error("Error setting up game:", err);
+        setError("Failed to connect to game. Please try again.");
         setIsLoading(false);
       }
-    } catch (err) {
-      console.error("Error setting up game:", err);
-      setError("Failed to connect to game. Please try again.");
-      setIsLoading(false);
-    }
+    };
+    
+    initializeConnection();
 
     // Clean up subscription when component unmounts
     return () => {
@@ -165,20 +177,27 @@ const GameMultiplayer = () => {
         subscription.unsubscribe();
       }
     };
-  }, [sessionId, isConnected, opponentPresent, gameReady]);
+  }, [sessionId, isConnected]);
 
   // Update waiting state when opponent status changes
   useEffect(() => {
     setWaitingForOpponent(!opponentPresent || !gameReady);
     
-    // If opponent joins and game becomes ready, sync state
+    // If opponent joins and game becomes ready, fetch initial state again
     if (opponentPresent && gameReady && sessionId) {
-      syncWithDatabase(sessionId).catch(err => {
-        console.error("Error syncing after opponent joined:", err);
-        setError("Failed to sync game data with opponent");
-      });
+      fetchInitialGameState(sessionId)
+        .then(initialGameState => {
+          if (initialGameState) {
+            updateGameStateFromDatabase(initialGameState);
+            setIsLoading(false);
+          }
+        })
+        .catch(err => {
+          console.error("Error syncing after opponent joined:", err);
+          setError("Failed to sync game data with opponent");
+        });
     }
-  }, [opponentPresent, gameReady, sessionId]);
+  }, [opponentPresent, gameReady, sessionId, updateGameStateFromDatabase]);
 
   // Sync game state to database when it changes locally - with debouncing
   useEffect(() => {

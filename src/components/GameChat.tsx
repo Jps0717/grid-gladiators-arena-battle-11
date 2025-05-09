@@ -47,8 +47,7 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
         }
         
         if (data) {
-          // Explicitly cast the data to ChatMessage[] to satisfy TypeScript
-          setMessages(data as unknown as ChatMessage[]);
+          setMessages(data as ChatMessage[]);
         }
       } catch (err) {
         console.error("Exception fetching messages:", err);
@@ -69,7 +68,7 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
           filter: `session_id=eq.${sessionId}` 
         },
         (payload) => {
-          setMessages(prevMessages => [...prevMessages, payload.new as unknown as ChatMessage]);
+          setMessages(prevMessages => [...prevMessages, payload.new as ChatMessage]);
         }
       )
       .subscribe();
@@ -97,16 +96,14 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
     };
     
     try {
-      // Use a type assertion here to fix the TypeScript error
-      const { error } = await supabase.rpc('insert_chat_message', message as any);
-      
-      if (error) {
-        // Fallback to direct insert if the RPC isn't available
-        const { error: insertError } = await supabase
-          .from('game_chat_messages')
-          .insert([message]);
+      // Using direct insert instead of RPC to avoid type issues
+      const { error } = await supabase
+        .from('game_chat_messages')
+        .insert([message]);
           
-        if (insertError) throw insertError;
+      if (error) {
+        console.error("Error sending message:", error);
+        return;
       }
       
       setNewMessage("");

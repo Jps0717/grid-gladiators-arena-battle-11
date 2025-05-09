@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { GameState, Position, PlayerData, PlayerType } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
@@ -229,6 +228,52 @@ export const syncGameState = async (sessionId: string, gameState: GameState): Pr
   }
 };
 
+// Fetch initial game state with retries - New function to ensure initial data loading
+export const fetchInitialGameState = async (
+  sessionId: string, 
+  maxRetries = 3
+): Promise<GameState | null> => {
+  let attempts = 0;
+  
+  while (attempts < maxRetries) {
+    try {
+      console.log(`Fetching initial game state for session ${sessionId}, attempt ${attempts + 1}`);
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .select('game_data, current_player, status, player_colors')
+        .eq('id', sessionId)
+        .single();
+      
+      if (error) {
+        console.error(`Error fetching game state (attempt ${attempts + 1}):`, error);
+        attempts++;
+        
+        // Short delay before retrying
+        if (attempts < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        } else {
+          throw error;
+        }
+      }
+      
+      if (data && data.game_data) {
+        console.log("Successfully fetched initial game state:", data.game_data);
+        return data.game_data as GameState;
+      } else {
+        console.warn("No game data found in session");
+        return null;
+      }
+    } catch (error) {
+      console.error("Failed to fetch initial game state:", error);
+      return null;
+    }
+  }
+  
+  return null;
+};
+
+// Check game session existence
 export const checkGameSession = async (sessionId: string): Promise<{ exists: boolean, data: any | null }> => {
   try {
     const { data, error } = await supabase
@@ -344,4 +389,3 @@ export const cleanupStaleSessions = async (options: {
     return 0;
   }
 };
-
