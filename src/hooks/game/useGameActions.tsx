@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback } from "react";
 import { 
   GameState, 
   Position, 
@@ -16,6 +16,7 @@ import {
 } from "../../utils/gameUtils";
 import { toast } from "@/hooks/use-toast";
 
+// Type for the parameters
 interface GameActionsProps {
   gameState: GameState;
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
@@ -30,6 +31,8 @@ interface GameActionsProps {
   animateEnergyGain: () => void;
   setEnergyGainPosition: React.Dispatch<React.SetStateAction<Position | null>>;
   playSound: (type: 'move' | 'hit' | 'wall' | 'energy' | 'win' | 'turn') => void;
+  invalidWallCells: Position[];
+  setInvalidWallCells: React.Dispatch<React.SetStateAction<Position[]>>;
 }
 
 export const useGameActions = ({
@@ -45,7 +48,9 @@ export const useGameActions = ({
   updateValidMoves,
   animateEnergyGain,
   setEnergyGainPosition,
-  playSound
+  playSound,
+  invalidWallCells,
+  setInvalidWallCells
 }: GameActionsProps) => {
   
   // Track if the last action was a hit
@@ -53,9 +58,6 @@ export const useGameActions = ({
   
   // Track hit cooldown state
   const [isHitInCooldown, setIsHitInCooldown] = useState(false);
-  
-  // Track invalid wall placements
-  const [invalidWallCells, setInvalidWallCells] = useState<Position[]>([]);
   
   // Check if a player has enough energy for an action
   const hasEnoughEnergy = useCallback((action: ActionType): boolean => {

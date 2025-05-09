@@ -1,11 +1,9 @@
 
-import { useState, useCallback } from "react";
-import { GameState, Position, ActionType } from "../../types/gameTypes";
-import { initializeGameState } from "../../utils/gameUtils";
+import { useState, useCallback, useEffect } from "react";
+import { GameState, Position, ActionType, ValidMoves } from "../../types/gameTypes";
+import { initializeGameState, getValidMoves, isPlayerJumpZone } from "../../utils/gameUtils";
 import { toast } from "@/hooks/use-toast";
-import { useGameValidations } from "./useGameValidations";
 import { useGameActions } from "./useGameActions";
-import { useGameAnimations } from "./useGameAnimations";
 import { syncGameState } from "@/utils/supabase";
 
 export const useGameLogic = () => {
@@ -14,18 +12,49 @@ export const useGameLogic = () => {
   const [hitUsedCount, setHitUsedCount] = useState<number>(0);
   const [energyGainPosition, setEnergyGainPosition] = useState<Position | null>(null);
   
-  // Custom hooks for game functionality
-  const { validMoves, updateValidMoves } = useGameValidations(gameState);
-  const { 
-    highlightedCells, 
-    setHighlightedCells, 
-    animatingHit, 
-    setAnimatingHit,
-    energyGainAnimation,
-    animateEnergyGain,
-    playSound
-  } = useGameAnimations();
+  // Animation states (merged from useGameAnimations)
+  const [highlightedCells, setHighlightedCells] = useState<Position[]>([]);
+  const [animatingHit, setAnimatingHit] = useState<Position[]>([]);
+  const [energyGainAnimation, setEnergyGainAnimation] = useState<boolean>(false);
+  const [validMoves, setValidMoves] = useState<ValidMoves>({ moves: [], wallPlacements: [], hitTargets: [] });
+  const [invalidWallCells, setInvalidWallCells] = useState<Position[]>([]);
   
+  // Animation helper functions (from useGameAnimations)
+  const animateEnergyGain = useCallback(() => {
+    setEnergyGainAnimation(true);
+    setTimeout(() => setEnergyGainAnimation(false), 1000);
+  }, []);
+  
+  const playSound = useCallback((type: 'move' | 'hit' | 'wall' | 'energy' | 'win' | 'turn') => {
+    console.log(`Playing sound: ${type}`);
+    // In a real implementation, this would use the Web Audio API or an audio library
+  }, []);
+
+  // Validation functions (from useGameValidations)
+  const updateValidMoves = useCallback(() => {
+    if (gameState.gameOver) return;
+
+    const currentPlayerPosition = 
+      gameState.currentPlayer === "red" ? gameState.redPosition : gameState.bluePosition;
+    
+    const isJumpZone = isPlayerJumpZone(currentPlayerPosition, gameState.currentPlayer);
+    const usedJump = gameState.currentPlayer === "red" ? gameState.redUsedJump : gameState.blueUsedJump;
+    
+    const moves = getValidMoves(
+      gameState,
+      currentPlayerPosition,
+      isJumpZone,
+      usedJump
+    );
+    
+    setValidMoves(moves);
+  }, [gameState]);
+
+  // Update valid moves when game state changes
+  useEffect(() => {
+    updateValidMoves();
+  }, [gameState, updateValidMoves]);
+
   const {
     resetGame,
     nextPlayer,
@@ -37,8 +66,7 @@ export const useGameLogic = () => {
     handleCellClick,
     endTurn,
     triggerEnergyGainAnimation,
-    isHitInCooldown,
-    invalidWallCells
+    isHitInCooldown
   } = useGameActions({
     gameState,
     setGameState,
@@ -52,7 +80,9 @@ export const useGameLogic = () => {
     updateValidMoves,
     animateEnergyGain,
     setEnergyGainPosition,
-    playSound
+    playSound,
+    invalidWallCells,
+    setInvalidWallCells
   });
 
   // Function to forcefully update game state from external sources (like Supabase)
