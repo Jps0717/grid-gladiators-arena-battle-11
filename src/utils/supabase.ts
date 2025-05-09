@@ -7,10 +7,13 @@ import { initializeGameState } from "./gameUtils";
 // Create a new game session and return session ID
 export const createGameSession = async (): Promise<string | null> => {
   try {
-    const initialGameState = {
+    // Initialize with a full game state instead of empty object
+    const initialGameState = initializeGameState();
+    
+    const sessionData = {
       status: 'waiting', // waiting, active, completed
-      current_player: 'red', // Red always starts
-      game_data: {},
+      current_player: initialGameState.currentPlayer, // Red always starts
+      game_data: initialGameState,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       player_colors: {
@@ -21,7 +24,7 @@ export const createGameSession = async (): Promise<string | null> => {
 
     const { data, error } = await supabase
       .from('game_sessions')
-      .insert([initialGameState])
+      .insert([sessionData])
       .select();
       
     if (error) throw error;
