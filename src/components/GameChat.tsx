@@ -34,21 +34,24 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
     
     // Fetch existing messages
     const fetchMessages = async () => {
-      // Using the raw query approach to work around TypeScript limitations
-      const { data, error } = await supabase
-        .from('game_chat_messages')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
+      try {
+        const { data, error } = await supabase
+          .from('game_chat_messages')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: true });
+          
+        if (error) {
+          console.error("Error fetching chat messages:", error);
+          return;
+        }
         
-      if (error) {
-        console.error("Error fetching chat messages:", error);
-        return;
-      }
-      
-      if (data) {
-        // Explicitly cast the data to ChatMessage[] to satisfy TypeScript
-        setMessages(data as unknown as ChatMessage[]);
+        if (data) {
+          // Explicitly cast the data to ChatMessage[] to satisfy TypeScript
+          setMessages(data as unknown as ChatMessage[]);
+        }
+      } catch (err) {
+        console.error("Exception fetching messages:", err);
       }
     };
     
@@ -94,12 +97,16 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
     };
     
     try {
-      // Using executeRawQuery instead of the typed API to work around TypeScript limitations
-      const { error } = await supabase
-        .from('game_chat_messages')
-        .insert([message as any]); // Use type assertion to bypass type checking
-        
-      if (error) throw error;
+      const { error } = await supabase.rpc('insert_chat_message', message);
+      
+      if (error) {
+        // Fallback to direct insert if the RPC isn't available
+        const { error: insertError } = await supabase
+          .from('game_chat_messages')
+          .insert([message]);
+          
+        if (insertError) throw insertError;
+      }
       
       setNewMessage("");
     } catch (error) {
