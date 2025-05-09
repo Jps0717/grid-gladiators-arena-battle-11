@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GameState, PlayerType } from '../types/gameTypes';
@@ -14,6 +13,7 @@ import {
 } from '../utils/supabase';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface MultiplayerContextType {
   sessionId: string | null;
@@ -43,7 +43,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [opponentPresent, setOpponentPresent] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [gameReady, setGameReady] = useState<boolean>(false);
-  const [presenceChannel, setPresenceChannel] = useState<any>(null);
+  const [presenceChannel, setPresenceChannel] = useState<RealtimeChannel | null>(null);
   const [statusSubscription, setStatusSubscription] = useState<any>(null);
   
   const navigate = useNavigate();

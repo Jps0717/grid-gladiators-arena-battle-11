@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,17 @@ type GameState = {
     score: number
   }>;
 };
+
+// Define our custom presence type to avoid TypeScript errors
+interface PlayerPresence {
+  user: string;
+  online_at: string;
+  player_data?: {
+    position: { x: number, y: number };
+    color: string;
+    score: number;
+  }
+}
 
 const RealtimeTest = () => {
   const { sessionId } = useParams();
@@ -332,8 +342,10 @@ const RealtimeTest = () => {
         
         // Convert presence state to game state
         Object.keys(presenceState).forEach(key => {
-          const userPresence = presenceState[key][0];
-          if (userPresence.player_data) {
+          // Cast the presenceState to our custom type
+          const userPresence = presenceState[key][0] as unknown as PlayerPresence;
+          
+          if (userPresence && userPresence.player_data) {
             setGameState(prev => ({
               ...prev,
               players: {
@@ -350,26 +362,33 @@ const RealtimeTest = () => {
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
         console.log('Player joined:', key, newPresences);
+        
+        // Cast to our custom type
+        const presence = newPresences[0] as unknown as PlayerPresence;
+        
         toast({
           title: "Player joined",
-          description: `${newPresences[0].user} has joined the game`,
+          description: `${presence.user} has joined the game`,
         });
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
         console.log('Player left:', key, leftPresences);
         
+        // Cast to our custom type
+        const presence = leftPresences[0] as unknown as PlayerPresence;
+        
         // Remove player from game state
-        if (leftPresences[0].user) {
+        if (presence && presence.user) {
           setGameState(prev => {
             const newPlayers = { ...prev.players };
-            delete newPlayers[leftPresences[0].user];
+            delete newPlayers[presence.user];
             return { ...prev, players: newPlayers };
           });
         }
         
         toast({
           title: "Player left",
-          description: `${leftPresences[0].user} has left the game`,
+          description: `${presence.user} has left the game`,
         });
       })
       .subscribe(async (status) => {
