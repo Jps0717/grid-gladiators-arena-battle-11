@@ -97,7 +97,8 @@ const GameChat: React.FC<GameChatProps> = ({ sessionId }) => {
     };
     
     try {
-      const { error } = await supabase.rpc('insert_chat_message', message);
+      // Use a type assertion here to fix the TypeScript error
+      const { error } = await supabase.rpc('insert_chat_message', message as any);
       
       if (error) {
         // Fallback to direct insert if the RPC isn't available
