@@ -1,3 +1,4 @@
+
 import { GameState, Position, PlayerType, PlayerData } from "../types/gameTypes";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -87,8 +88,11 @@ export const joinGameSession = async (sessionId: string): Promise<JoinResult> =>
       return { success: false };
     }
 
+    // Cast the player_colors JSON to the correct type
+    const playerColors = sessionData.player_colors as unknown as { host: PlayerType | null; guest: PlayerType | null };
+    
     // Read the host color and assign the opposite to the guest
-    const hostColor = sessionData.player_colors.host as PlayerType;
+    const hostColor = playerColors.host as PlayerType;
     const guestColor: PlayerType = hostColor === "red" ? "blue" : "red";
 
     // Update player colors and set status to active
