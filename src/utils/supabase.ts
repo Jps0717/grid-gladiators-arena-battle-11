@@ -69,15 +69,16 @@ export const joinGameSession = async (sessionId: string): Promise<boolean> => {
       return false;
     }
 
-    // Cast the player_colors to the correct shape
-    const colors = sessionData.player_colors as { host: string | null; guest: string | null };
+    // Cast the player_colors to the correct shape to fix TypeScript errors
+    const playerColors = sessionData.player_colors as { host: string | null; guest: string | null } || 
+                        { host: null, guest: null };
 
     // Auto-assign guest as blue
     const { error: colorError } = await supabase
       .from('game_sessions')
       .update({ 
-        "player_colors": { 
-          host: colors?.host || "red",
+        player_colors: { 
+          host: playerColors?.host || "red",
           guest: "blue" 
         }
       })

@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GameState, PlayerType } from '../types/gameTypes';
 import { 
@@ -10,10 +10,10 @@ import {
   createGameSession, 
   joinGameSession,
   checkGameSession,
-  trackPlayerPresence,
   getGameSession
 } from '../utils/supabase';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MultiplayerContextType {
   sessionId: string | null;
@@ -89,28 +89,109 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     
     return () => {
-      // Clean up presence channel on unmount
-      if (presenceChannel) {
-        presenceChannel.unsubscribe();
-      }
-      
-      // Clean up status subscription
-      if (statusSubscription) {
-        statusSubscription.unsubscribe();
-      }
+      cleanupChannels();
     };
   }, []);
   
+  const cleanupChannels = () => {
+    // Clean up presence channel on unmount
+    if (presenceChannel) {
+      supabase.removeChannel(presenceChannel);
+      setPresenceChannel(null);
+    }
+    
+    // Clean up status subscription
+    if (statusSubscription) {
+      statusSubscription.unsubscribe();
+      setStatusSubscription(null);
+    }
+  };
+  
   // Set up presence channel
   const setupPresenceChannel = async (sessionId: string, isHost: boolean) => {
-    const channel = await subscribeToPresence(sessionId);
-    if (channel) {
-      setPresenceChannel(channel);
-      await trackPlayerPresence(channel, {
-        user: isHost ? 'host' : 'guest',
-        online: true,
-        joinedAt: new Date().toISOString()
-      });
+    try {
+      console.log(`Setting up presence channel for game ${sessionId}`);
+      
+      // First, remove any existing channel
+      if (presenceChannel) {
+        await supabase.removeChannel(presenceChannel);
+      }
+      
+      // Create a new presence channel
+      const channel = supabase.channel(`presence_${sessionId}`);
+      
+      channel
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          console.log('Presence state updated:', state);
+          
+          // Check for opponent presence
+          const participants = Object.values(state).flat();
+          const opponentFound = participants.some(p => {
+            // Check if this is an opponent's presence data
+            const presenceData = p as any;
+            if (!presenceData || !presenceData.user) return false;
+            
+            return isHost ? presenceData.user === 'guest' : presenceData.user === 'host';
+          });
+          
+          setOpponentPresent(opponentFound);
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('Player joined:', key, newPresences);
+          
+          // Check if the joined user is the opponent
+          const joinedPresence = newPresences[0] as any;
+          if (joinedPresence && joinedPresence.user) {
+            const isOpponent = isHost ? joinedPresence.user === 'guest' : joinedPresence.user === 'host';
+            
+            if (isOpponent) {
+              toast({
+                title: "Player joined",
+                description: "Your opponent has joined the game!",
+              });
+            }
+          }
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          console.log('Player left:', key, leftPresences);
+          
+          // Check if the left user was the opponent
+          const leftPresence = leftPresences[0] as any;
+          if (leftPresence && leftPresence.user) {
+            const wasOpponent = isHost ? leftPresence.user === 'guest' : leftPresence.user === 'host';
+            
+            if (wasOpponent) {
+              toast({
+                title: "Player left",
+                description: "Your opponent has left the game",
+                variant: "destructive",
+              });
+              setOpponentPresent(false);
+            }
+          }
+        });
+      
+      // Subscribe to the channel
+      const status = await channel.subscribe();
+      console.log(`Presence channel subscription status: ${status}`);
+      
+      if (status === 'SUBSCRIBED') {
+        // Track this player's presence
+        const presenceData = {
+          user: isHost ? 'host' : 'guest',
+          online: true,
+          joinedAt: new Date().toISOString()
+        };
+        
+        await channel.track(presenceData);
+        setPresenceChannel(channel);
+      }
+      
+      return channel;
+    } catch (error) {
+      console.error("Error setting up presence channel:", error);
+      return null;
     }
   };
   
@@ -125,11 +206,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         
         // Get player color from session data
         if (isHost && sessionData.player_colors?.host) {
-          setPlayerColor(sessionData.player_colors.host);
+          setPlayerColor(sessionData.player_colors.host as PlayerType);
           setIsMyTurn(sessionData.player_colors.host === 'red');
           localStorage.setItem('playerColor', sessionData.player_colors.host);
         } else if (!isHost && sessionData.player_colors?.guest) {
-          setPlayerColor(sessionData.player_colors.guest);
+          setPlayerColor(sessionData.player_colors.guest as PlayerType);
           setIsMyTurn(sessionData.player_colors.guest === 'red');
           localStorage.setItem('playerColor', sessionData.player_colors.guest);
         }
@@ -273,9 +354,6 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       
       // Reconnect presence channel
-      if (presenceChannel) {
-        presenceChannel.unsubscribe();
-      }
       await setupPresenceChannel(sessionId, isHost);
       
       // Reconnect status subscription
@@ -300,17 +378,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
   
   const handleLeaveGame = () => {
-    // Clean up presence channel
-    if (presenceChannel) {
-      presenceChannel.unsubscribe();
-      setPresenceChannel(null);
-    }
-    
-    // Clean up status subscription
-    if (statusSubscription) {
-      statusSubscription.unsubscribe();
-      setStatusSubscription(null);
-    }
+    cleanupChannels();
     
     setSessionId(null);
     setPlayerColor(null);

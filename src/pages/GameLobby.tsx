@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { useMultiplayer } from "../contexts/MultiplayerContext";
-import { Users, Plus, ArrowRight } from "lucide-react";
+import { Users, Plus, ArrowRight, Copy, Loader2 } from "lucide-react";
 
 interface GameSession {
   id: string;
@@ -18,6 +18,7 @@ const GameLobby = () => {
   const [games, setGames] = useState<GameSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [joinCode, setJoinCode] = useState("");
+  const [copySuccess, setCopySuccess] = useState(false);
   const { createGame, joinGame, isLoading: isActionLoading } = useMultiplayer();
   const navigate = useNavigate();
 
@@ -120,18 +121,37 @@ const GameLobby = () => {
     }
   };
 
+  // Copy game code to clipboard
+  const copyGameCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopySuccess(true);
+    toast({
+      title: "Game code copied!",
+      description: "Share this code with your friend to join",
+    });
+    
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-800 to-blue-900 p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Game Lobby</h1>
+          <h1 className="text-3xl font-bold text-white">Grid Gladiators Lobby</h1>
           <Button
             onClick={handleCreateGame}
             disabled={isActionLoading}
             className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
           >
-            <Plus size={18} />
-            Create New Game
+            {isActionLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
+              </>
+            ) : (
+              <>
+                <Plus size={18} /> Create New Game
+              </>
+            )}
           </Button>
         </div>
 
@@ -150,7 +170,13 @@ const GameLobby = () => {
               disabled={isActionLoading || !joinCode.trim()}
               className="bg-blue-700 hover:bg-blue-600 px-6"
             >
-              Join
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Joining...
+                </>
+              ) : (
+                "Join"
+              )}
             </Button>
           </div>
         </div>
@@ -178,7 +204,17 @@ const GameLobby = () => {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-mono text-blue-200">Game #{game.id.substring(0, 8)}...</h3>
+                      <div className="flex items-center">
+                        <h3 className="font-mono text-blue-200">#{game.id.substring(0, 8)}...</h3>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => copyGameCode(game.id)}
+                          className="text-blue-300 hover:bg-blue-700/30 p-1 ml-1"
+                        >
+                          <Copy size={14} />
+                        </Button>
+                      </div>
                       <p className="text-xs text-blue-300 mt-1">
                         Created {new Date(game.created_at).toLocaleTimeString()}
                       </p>
@@ -189,8 +225,14 @@ const GameLobby = () => {
                       size="sm"
                       className="bg-blue-600 hover:bg-blue-500"
                     >
-                      <ArrowRight size={16} className="mr-1" />
-                      Join
+                      {isActionLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <ArrowRight size={16} className="mr-1" />
+                          Join
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
